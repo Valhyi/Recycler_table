@@ -1,0 +1,27 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+
+[[mods]]
+modId="recyclertable"
+version="1.0.0"
+displayName="Recycler Table"
+authors="Valhyi"
+description='''
+ES: Añade una mesa de reciclaje para desglosar objetos y extraer encantamientos.
+EN: Adds a recycling table to uncraft items and extract enchantments into books.
+'''
+
+[[dependencies.recyclertable]]
+    modId="neoforge"
+    type="required"
+    versionRange="[26.2,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.recyclertable]]
+    modId="minecraft"
+    type="required"
+    versionRange="[26.2]"
+    ordering="NONE"
+    side="BOTH"
