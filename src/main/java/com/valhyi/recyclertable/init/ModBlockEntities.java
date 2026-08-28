@@ -12,11 +12,11 @@ public class ModBlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(BuiltInRegistries.BLOCK_ENTITY_TYPE, RecyclerTable.MOD_ID);
 
-    // ES: Registro de la entidad de bloque (BlockEntity) para almacenar items e inventario
-    // EN: Registration of the BlockEntity to store items and inventory
+    // ES: Registro corregido de la entidad de bloque (BlockEntity) para NeoForge 26.2
+    // EN: Corrected registration of the BlockEntity for NeoForge 26.2
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RecyclerBlockEntity>> RECYCLER_BE =
             BLOCK_ENTITIES.register("recycler_be", () ->
-                    BlockEntityType.Builder.of(RecyclerBlockEntity::new, ModBlocks.RECYCLER_TABLE.get()).build(null));
+                    new BlockEntityType<>(RecyclerBlockEntity::new, java.util.Set.of(ModBlocks.RECYCLER_TABLE.get())));
 
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITIES.register(eventBus);
