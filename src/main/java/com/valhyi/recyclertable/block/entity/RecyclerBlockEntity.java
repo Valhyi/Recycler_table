@@ -3,13 +3,14 @@ package com.valhyi.recyclertable.block.entity;
 import com.valhyi.recyclertable.gui.RecyclerMenu;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.ValueInput;
+import net.minecraft.util.ValueOutput;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.ItemStackHandler;
@@ -44,16 +45,23 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
-    public void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
-        tag.put("Inventory", itemHandler.serializeNBT(registries));
+    protected void saveAdditional(ValueOutput output) {
+        super.saveAdditional(output);
+        output.writeInt(itemHandler.getSlots());
+        for (int i = 0; i < itemHandler.getSlots(); i++) {
+            ItemStack.STREAM_CODEC.encode(output, itemHandler.getStackInSlot(i));
+        }
     }
 
     @Override
-    public void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
-        if (tag.contains("Inventory")) {
-            itemHandler.deserializeNBT(registries, tag.getCompound("Inventory"));
+    protected void loadAdditional(ValueInput input) {
+        super.loadAdditional(input);
+        int slots = input.readInt();
+        for (int i = 0; i < slots; i++) {
+            ItemStack stack = ItemStack.STREAM_CODEC.decode(input);
+            if (i < itemHandler.getSlots()) {
+                itemHandler.setStackInSlot(i, stack);
+            }
         }
     }
 }
