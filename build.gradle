@@ -17,7 +17,7 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 neoForge {
     // ES: Especificación de versión para NeoForge 26.2
     // EN: NeoForge version target for 26.2
-    version = '26.2.0-beta' 
+    neoforge_version=26.2.0.70
 
     parchment {
         mappingsVersion = '2026.01.01'
