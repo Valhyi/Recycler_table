@@ -17,8 +17,6 @@ import org.jetbrains.annotations.Nullable;
 
 public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
-    // ES: Manejador de inventario (Total 18 slots: 9 entrada/crafteo, 9 salida/desglose)
-    // EN: Inventory handler (Total 18 slots: 9 input/crafting, 9 output/uncrafting)
     private final ItemStackHandler itemHandler = new ItemStackHandler(18) {
         @Override
         protected void onContentsChanged(int slot) {
@@ -45,8 +43,6 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         return new RecyclerMenu(containerId, playerInventory, this.worldPosition, this.itemHandler);
     }
 
-    // ES: Guardado y lectura NBT en NeoForge 26.2
-    // EN: Save and load NBT in NeoForge 26.2
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
@@ -56,6 +52,8 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        itemHandler.deserializeNBT(registries, tag.getCompound("Inventory"));
+        if (tag.contains("Inventory")) {
+            itemHandler.deserializeNBT(registries, tag.getCompound("Inventory"));
+        }
     }
 }
