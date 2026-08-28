@@ -38,6 +38,7 @@ neoForge {
 }
 
 repositories {
+    maven { url = 'https://maven.neoforged.net/releases' }
     mavenCentral()
 }
 
