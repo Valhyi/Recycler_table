@@ -26,7 +26,7 @@ public class RecyclerLogic {
                     && ItemStack.isSameItem(recipeOutput, inputStack) 
                     && inputStack.getCount() >= recipeOutput.getCount()) {
 
-                for (Ingredient ingredient : recipe.getIngredients()) {
+                for (Ingredient ingredient : recipe.getPlacementInfo().ingredients()) {
                     ItemStack[] matchingStacks = ingredient.getItems();
                     if (matchingStacks.length > 0) {
                         resultIngredients.add(matchingStacks[0].copyWithCount(1));
