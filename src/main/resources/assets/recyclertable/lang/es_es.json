@@ -1,0 +1,7 @@
+{
+  "block.recyclertable.recycler_table": "Mesa Recicladora",
+  "item.recyclertable.recycler_table": "Mesa Recicladora",
+  "container.recyclertable.recycler_table": "Mesa Recicladora",
+  "gui.recyclertable.config_button": "Preferencias",
+  "gui.recyclertable.config_opening_stub": "Abriendo preferencias de recetas..."
+}
