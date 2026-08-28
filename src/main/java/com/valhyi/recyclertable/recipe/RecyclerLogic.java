@@ -16,7 +16,7 @@ public class RecyclerLogic {
             return resultIngredients;
         }
 
-        RecipeManager recipeManager = level.getRecipeManager();
+        RecipeManager recipeManager = level.getServer().getRecipeManager();
 
         for (RecipeHolder<?> holder : recipeManager.getRecipes()) {
             Recipe<?> recipe = holder.value();
@@ -26,7 +26,7 @@ public class RecyclerLogic {
                     && ItemStack.isSameItem(recipeOutput, inputStack) 
                     && inputStack.getCount() >= recipeOutput.getCount()) {
 
-                for (Ingredient ingredient : recipe.getPlacementInfo().ingredients()) {
+                for (Ingredient ingredient : recipe.getIngredients()) {
                     ItemStack[] matchingStacks = ingredient.getItems();
                     if (matchingStacks.length > 0) {
                         resultIngredients.add(matchingStacks[0].copyWithCount(1));
