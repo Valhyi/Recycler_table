@@ -30,8 +30,6 @@ public class RecyclerBlock extends Block implements EntityBlock {
         return new RecyclerBlockEntity(pos, state);
     }
 
-    // ES: Abrir la interfaz al hacer clic derecho sobre la mesa
-    // EN: Open GUI upon right-clicking the table block
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide()) {
@@ -40,6 +38,6 @@ public class RecyclerBlock extends Block implements EntityBlock {
                 serverPlayer.openMenu(recyclerBE, pos);
             }
         }
-        return InteractionResult.sidedSuccess(level.isClientSide());
+        return InteractionResult.SUCCESS;
     }
 }
