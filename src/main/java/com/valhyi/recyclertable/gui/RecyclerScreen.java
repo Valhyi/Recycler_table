@@ -9,8 +9,6 @@ import net.minecraft.world.entity.player.Inventory;
 
 public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
-    // ES: Textura del GUI guardada en assets
-    // EN: GUI texture stored in assets
     private static final ResourceLocation TEXTURE = 
             ResourceLocation.fromNamespaceAndPath(RecyclerTable.MOD_ID, "textures/gui/recycler_gui.png");
 
