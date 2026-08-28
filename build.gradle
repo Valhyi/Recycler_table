@@ -1,6 +1,6 @@
 plugins {
     id 'java-library'
-    id 'net.neoforged.moddev' version '2.0.68'
+    id 'net.neoforged.moddev' version '2.0.75'
 }
 
 version = '1.0.0'
@@ -14,6 +14,8 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 neoForge {
     version = '26.2.0.70'
+    // Forzamos el uso de la versión actual para evitar conflictos con herramientas internas nulas
+    neoFormVersion = '26.2.0.70'
 
     runs {
         client {
