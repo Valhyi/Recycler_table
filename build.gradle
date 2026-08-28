@@ -14,8 +14,6 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 neoForge {
     version = '26.2.0.70'
-    // Forzamos el uso de la versión actual para evitar conflictos con herramientas internas nulas
-    neoFormVersion = '26.2.0.70'
 
     runs {
         client {
