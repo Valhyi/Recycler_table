@@ -1,0 +1,45 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.75'
+}
+
+version = '1.0.0'
+group = 'com.valhyi.recyclertable'
+
+base {
+    archivesName = 'recyclertable'
+}
+
+// ES: Java 21 requerido para versiones 26.x
+// EN: Java 21 required for 26.x versions
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    // ES: Especificación de versión para NeoForge 26.2
+    // EN: NeoForge version target for 26.2
+    version = '26.2.0-beta' 
+
+    parchment {
+        mappingsVersion = '2026.01.01'
+        minecraftVersion = '26.2'
+    }
+
+    runs {
+        client {
+            client()
+        }
+    }
+
+    mods {
+        recyclertable {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+}
