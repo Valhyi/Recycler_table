@@ -14,8 +14,6 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     public RecyclerScreen(RecyclerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        this.imageWidth = 176;
-        this.imageHeight = 166;
     }
 
     @Override
@@ -27,7 +25,6 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, delta);
         super.render(guiGraphics, mouseX, mouseY, delta);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
     }
