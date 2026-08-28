@@ -10,19 +10,10 @@ base {
     archivesName = 'recyclertable'
 }
 
-// ES: Java 21 requerido para versiones 26.x
-// EN: Java 21 required for 26.x versions
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 neoForge {
-    // ES: Especificación de versión para NeoForge 26.2
-    // EN: NeoForge version target for 26.2
     version = '26.2.0.70'
-
-    parchment {
-        mappingsVersion = '2026.01.01'
-        minecraftVersion = '26.2'
-    }
 
     runs {
         client {
