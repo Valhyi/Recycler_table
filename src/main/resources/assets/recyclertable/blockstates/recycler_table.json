@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "recyclertable:block/recycler_table"
+    }
+  }
+}
