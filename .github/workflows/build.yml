@@ -24,10 +24,12 @@ jobs:
         cd temp_wrapper
         touch settings.gradle
         gradle wrapper
-        mv gradlew ../
-        mv gradlew.bat ../
-        mv gradle ../
         cd ..
+        rm -rf gradle
+        rm -f gradlew gradlew.bat
+        mv temp_wrapper/gradle ./
+        mv temp_wrapper/gradlew ./
+        mv temp_wrapper/gradlew.bat ./
         rm -rf temp_wrapper
 
     - name: Make gradlew executable
