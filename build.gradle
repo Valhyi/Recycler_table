@@ -1,6 +1,7 @@
 plugins {
     id 'java-library'
-    id 'net.neoforged.moddev' version '2.0.75'
+    // 1. Actualiza el plugin a una versión compatible con Minecraft 26.2
+    id 'net.neoforged.moddev' version '2.0.141' 
 }
 
 version = '1.0.0'
@@ -10,7 +11,8 @@ base {
     archivesName = 'recyclertable'
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+// 2. Cambia la versión de Java de 21 a 25 (Requerido por Minecraft 26.2+)
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 neoForge {
     version = '26.2.0.70'
