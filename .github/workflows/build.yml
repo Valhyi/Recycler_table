@@ -18,6 +18,9 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
 
+    - name: Generate Gradle Wrapper
+      run: gradle wrapper
+
     - name: Make gradlew executable
       run: chmod +x gradlew
 
