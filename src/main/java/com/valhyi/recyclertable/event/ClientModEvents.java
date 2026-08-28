@@ -8,9 +8,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
-// ES: Suscriptor de eventos exclusivos del cliente (Registro de Pantallas/Screens)
-// EN: Client-only event subscriber (Screen Registration)
-@EventBusSubscriber(modid = RecyclerTable.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = RecyclerTable.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
 public class ClientModEvents {
 
     @SubscribeEvent
