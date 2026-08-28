@@ -19,15 +19,13 @@ jobs:
         java-version: '25'
         distribution: 'temurin'
 
-    # Usamos la acción oficial de Gradle que configura y repara el wrapper automáticamente de forma segura
+    # Configura el entorno Gradle del sistema de forma automática
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
 
-    - name: Make gradlew executable
-      run: chmod +x gradlew
-
-    - name: Build with Gradle Wrapper
-      run: ./gradlew build --no-daemon
+    # Ejecuta la compilación usando el comando global del sistema
+    - name: Build Mod
+      run: gradle build --no-daemon
 
     - name: Upload Mod Jar
       uses: actions/upload-artifact@v4
