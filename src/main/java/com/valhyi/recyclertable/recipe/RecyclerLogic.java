@@ -9,8 +9,6 @@ import java.util.List;
 
 public class RecyclerLogic {
 
-    // ES: Algoritmo para obtener los ingredientes originales de un item (Desglose / Uncrafting)
-    // EN: Algorithm to obtain the original recipe ingredients of an item (Uncrafting)
     public static List<ItemStack> getUncraftIngredients(Level level, ItemStack inputStack) {
         List<ItemStack> resultIngredients = new ArrayList<>();
 
@@ -20,8 +18,6 @@ public class RecyclerLogic {
 
         RecipeManager recipeManager = level.getRecipeManager();
 
-        // ES: Compatible con el API RecipeHolder de 26.2
-        // EN: Compatible with 26.2 RecipeHolder API
         for (RecipeHolder<?> holder : recipeManager.getRecipes()) {
             Recipe<?> recipe = holder.value();
             ItemStack recipeOutput = recipe.getResultItem(level.registryAccess());
@@ -30,7 +26,7 @@ public class RecyclerLogic {
                     && ItemStack.isSameItem(recipeOutput, inputStack) 
                     && inputStack.getCount() >= recipeOutput.getCount()) {
 
-                for (Ingredient ingredient : recipe.getPlacementInfo().ingredients()) {
+                for (Ingredient ingredient : recipe.getIngredients()) {
                     ItemStack[] matchingStacks = ingredient.getItems();
                     if (matchingStacks.length > 0) {
                         resultIngredients.add(matchingStacks[0].copyWithCount(1));
