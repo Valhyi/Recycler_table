@@ -3,9 +3,8 @@ package com.valhyi.recyclertable.block.entity;
 import com.valhyi.recyclertable.gui.RecyclerMenu;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.ValueInput;
-import net.minecraft.util.ValueOutput;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -45,23 +44,16 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
-    protected void saveAdditional(ValueOutput output) {
-        super.saveAdditional(output);
-        output.writeInt(itemHandler.getSlots());
-        for (int i = 0; i < itemHandler.getSlots(); i++) {
-            ItemStack.STREAM_CODEC.encode(output, itemHandler.getStackInSlot(i));
-        }
+    protected void saveAdditional(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        super.saveAdditional(tag, registries);
+        tag.put("Inventory", itemHandler.serializeNBT(registries));
     }
 
     @Override
-    protected void loadAdditional(ValueInput input) {
-        super.loadAdditional(input);
-        int slots = input.readInt();
-        for (int i = 0; i < slots; i++) {
-            ItemStack stack = ItemStack.STREAM_CODEC.decode(input);
-            if (i < itemHandler.getSlots()) {
-                itemHandler.setStackInSlot(i, stack);
-            }
+    protected void loadAdditional(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        super.loadAdditional(tag, registries);
+        if (tag.contains("Inventory")) {
+            itemHandler.deserializeNBT(registries, tag.getCompound("Inventory"));
         }
     }
 }
