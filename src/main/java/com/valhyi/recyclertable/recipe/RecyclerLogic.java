@@ -12,7 +12,7 @@ public class RecyclerLogic {
     public static List<ItemStack> getUncraftIngredients(Level level, ItemStack inputStack) {
         List<ItemStack> resultIngredients = new ArrayList<>();
 
-        if (inputStack.isEmpty() || level.isClientSide()) {
+        if (inputStack.isEmpty() || level.isClientSide() || level.getServer() == null) {
             return resultIngredients;
         }
 
