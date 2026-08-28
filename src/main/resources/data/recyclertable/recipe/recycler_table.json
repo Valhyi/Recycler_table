@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " D ",
+    "O#O",
+    "W W"
+  ],
+  "key": {
+    "D": { "item": "minecraft:diamond" },
+    "O": { "item": "minecraft:obsidian" },
+    "#": { "item": "minecraft:crafting_table" },
+    "W": { "tag": "minecraft:planks" }
+  },
+  "result": {
+    "count": 1,
+    "id": "recyclertable:recycler_table"
+  }
+}
