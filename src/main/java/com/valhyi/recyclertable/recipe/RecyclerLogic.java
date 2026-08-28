@@ -1,0 +1,45 @@
+package com.valhyi.recyclertable.recipe;
+
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.*;
+import net.minecraft.world.level.Level;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class RecyclerLogic {
+
+    // ES: Algoritmo para obtener los ingredientes originales de un item (Desglose / Uncrafting)
+    // EN: Algorithm to obtain the original recipe ingredients of an item (Uncrafting)
+    public static List<ItemStack> getUncraftIngredients(Level level, ItemStack inputStack) {
+        List<ItemStack> resultIngredients = new ArrayList<>();
+
+        if (inputStack.isEmpty() || level.isClientSide()) {
+            return resultIngredients;
+        }
+
+        RecipeManager recipeManager = level.getRecipeManager();
+
+        // ES: Compatible con el API RecipeHolder de 26.2
+        // EN: Compatible with 26.2 RecipeHolder API
+        for (RecipeHolder<?> holder : recipeManager.getRecipes()) {
+            Recipe<?> recipe = holder.value();
+            ItemStack recipeOutput = recipe.getResultItem(level.registryAccess());
+
+            if (!recipeOutput.isEmpty() 
+                    && ItemStack.isSameItem(recipeOutput, inputStack) 
+                    && inputStack.getCount() >= recipeOutput.getCount()) {
+
+                for (Ingredient ingredient : recipe.getPlacementInfo().ingredients()) {
+                    ItemStack[] matchingStacks = ingredient.getItems();
+                    if (matchingStacks.length > 0) {
+                        resultIngredients.add(matchingStacks[0].copyWithCount(1));
+                    }
+                }
+                break;
+            }
+        }
+
+        return resultIngredients;
+    }
+}
