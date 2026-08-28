@@ -18,8 +18,16 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
 
-    - name: Generate Gradle Wrapper
-      run: gradle wrapper
+    - name: Generate Gradle Wrapper Safely
+      run: |
+        mkdir temp_wrapper
+        cd temp_wrapper
+        gradle wrapper
+        mv gradlew ../
+        mv gradlew.bat ../
+        mv gradle ../
+        cd ..
+        rm -rf temp_wrapper
 
     - name: Make gradlew executable
       run: chmod +x gradlew
