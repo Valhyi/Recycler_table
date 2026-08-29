@@ -4,7 +4,6 @@ import com.valhyi.recyclertable.RecyclerTable;
 import com.valhyi.recyclertable.block.RecyclerBlock;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.neoforged.bus.api.IEventBus;
@@ -16,8 +15,9 @@ public class ModBlocks {
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(RecyclerTable.MOD_ID);
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(RecyclerTable.MOD_ID);
 
-    public static final DeferredBlock<Block> RECYCLER_TABLE = BLOCKS.register("recycler_table",
-        () -> new RecyclerBlock(BlockBehaviour.Properties.of()
+    public static final DeferredBlock<RecyclerBlock> RECYCLER_TABLE = BLOCKS.register("recycler_table",
+        key -> new RecyclerBlock(BlockBehaviour.Properties.of()
+            .setId(key)
             .strength(3.5f, 6.0f)
             .sound(SoundType.WOOD)
             .requiresCorrectToolForDrops()
