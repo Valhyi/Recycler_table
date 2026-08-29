@@ -17,7 +17,7 @@ public class ModBlocks {
 
     public static final DeferredBlock<RecyclerBlock> RECYCLER_TABLE = BLOCKS.registerBlock("recycler_table",
         RecyclerBlock::new,
-        BlockBehaviour.Properties.of()
+        () -> BlockBehaviour.Properties.of()
             .strength(3.5f, 6.0f)
             .sound(SoundType.WOOD)
             .requiresCorrectToolForDrops()
