@@ -9,7 +9,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
-import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
@@ -18,11 +17,8 @@ import org.jetbrains.annotations.Nullable;
 
 public class RecyclerBlock extends Block implements EntityBlock {
 
-    public RecyclerBlock() {
-        super(BlockBehaviour.Properties.of()
-                .strength(3.5f, 6.0f)
-                .sound(SoundType.WOOD)
-                .requiresCorrectToolForDrops());
+    public RecyclerBlock(BlockBehaviour.Properties properties) {
+        super(properties);
     }
 
     @Nullable
