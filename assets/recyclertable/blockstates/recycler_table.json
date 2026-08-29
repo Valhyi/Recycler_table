@@ -1,7 +1,7 @@
 {
   "variants": {
     "": {
-      "model": "recyclertable:block/recycler_block"
+      "model": "recyclertable:block/recycler_table"
     }
   }
 }
