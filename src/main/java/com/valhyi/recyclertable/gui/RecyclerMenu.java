@@ -10,7 +10,6 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.SlotItemHandler;
 
@@ -27,21 +26,18 @@ public class RecyclerMenu extends AbstractContainerMenu {
         this.inventory = inventory;
         this.levelAccess = ContainerLevelAccess.create(playerInventory.player.level(), pos);
 
-        // Slots de la máquina (Ejemplo: 2 filas de 9)
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < 9; j++) {
                 this.addSlot(new SlotItemHandler(inventory, j + i * 9, 8 + j * 18, 18 + i * 18));
             }
         }
 
-        // Inventario del jugador
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 9; ++j) {
                 this.addSlot(new Slot(playerInventory, j + i * 9 + 9, 8 + j * 18, 84 + i * 18));
             }
         }
 
-        // Hotbar del jugador
         for (int k = 0; k < 9; ++k) {
             this.addSlot(new Slot(playerInventory, k, 8 + k * 18, 142));
         }
@@ -54,6 +50,7 @@ public class RecyclerMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return stillValid(levelAccess, player, ModBlocks.RECYCLER_BLOCK.get());
+        // Asegúrate de usar el nombre correcto con el que registraste tu bloque en ModBlocks
+        return stillValid(levelAccess, player, ModBlocks.RECYCLER_TABLE.get());
     }
 }
