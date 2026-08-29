@@ -9,16 +9,22 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
-public class RecyclerBlock extends Block implements EntityBlock {
-
-    public RecyclerBlock(BlockBehaviour.Properties properties) {
+public class RecyclerBlock extends BaseEntityBlock {
+    public RecyclerBlock(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    public RenderShape getRenderShape(BlockState state) {
+        return RenderShape.MODEL;
     }
 
     @Nullable
@@ -28,13 +34,8 @@ public class RecyclerBlock extends Block implements EntityBlock {
     }
 
     @Override
-    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, net.minecraft.world.InteractionHand hand, BlockHitResult hitResult) {
-        if (!level.isClientSide()) {
-            BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (blockEntity instanceof RecyclerBlockEntity recyclerBE && player instanceof ServerPlayer serverPlayer) {
-                serverPlayer.openMenu(recyclerBE, pos);
-            }
-        }
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+        // Evita el crasheo y responde al clic derecho
         return InteractionResult.SUCCESS;
     }
 }
