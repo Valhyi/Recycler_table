@@ -3,7 +3,6 @@ package com.valhyi.recyclertable.recipe;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.*;
 import net.minecraft.world.level.Level;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,22 +18,22 @@ public class RecyclerLogic {
         RecipeManager recipeManager = level.getServer().getRecipeManager();
 
         for (RecipeHolder<?> holder : recipeManager.getRecipes()) {
-            Recipe<?> recipe = holder.value();
-            
-            // Verificación del resultado utilizando el registro de la receta
-            ItemStack recipeOutput = recipe.getResultItem(level.registryAccess());
+            // Casteamos a CraftingRecipe para recuperar el acceso a los ingredientes y resultados
+            if (holder.value() instanceof CraftingRecipe recipe) {
+                ItemStack recipeOutput = recipe.getResultItem(level.registryAccess());
 
-            if (!recipeOutput.isEmpty() 
-                    && ItemStack.isSameItem(recipeOutput, inputStack) 
-                    && inputStack.getCount() >= recipeOutput.getCount()) {
+                if (!recipeOutput.isEmpty() 
+                        && ItemStack.isSameItem(recipeOutput, inputStack) 
+                        && inputStack.getCount() >= recipeOutput.getCount()) {
 
-                for (Ingredient ingredient : recipe.getIngredients()) {
-                    ItemStack[] matchingStacks = ingredient.getItems();
-                    if (matchingStacks.length > 0) {
-                        resultIngredients.add(matchingStacks[0].copyWithCount(1));
+                    for (Ingredient ingredient : recipe.getIngredients()) {
+                        ItemStack[] matchingStacks = ingredient.getItems();
+                        if (matchingStacks.length > 0) {
+                            resultIngredients.add(matchingStacks[0].copyWithCount(1));
+                        }
                     }
+                    break;
                 }
-                break;
             }
         }
 
