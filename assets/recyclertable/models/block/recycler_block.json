@@ -1,6 +1,12 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "parent": "minecraft:block/cube",
   "textures": {
-    "all": "recyclertable:block/recycler_table"
+    "particle": "recyclertable:block/recycler_table_front",
+    "down": "recyclertable:block/recycler_table_bottom",
+    "up": "recyclertable:block/recycler_table_top",
+    "north": "recyclertable:block/recycler_table_front",
+    "south": "recyclertable:block/recycler_table_front",
+    "east": "recyclertable:block/recycler_table_side",
+    "west": "recyclertable:block/recycler_table_side"
   }
 }
