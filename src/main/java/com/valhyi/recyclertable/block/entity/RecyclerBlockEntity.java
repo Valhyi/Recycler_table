@@ -4,8 +4,6 @@ import com.valhyi.recyclertable.gui.RecyclerMenu;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.ValueInput;
-import net.minecraft.util.ValueOutput;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -42,27 +40,5 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
         return new RecyclerMenu(containerId, playerInventory, this.worldPosition, this.itemHandler);
-    }
-
-    @Override
-    protected void saveAdditional(ValueOutput output) {
-        super.saveAdditional(output);
-        output.writeInt("InventorySlots", itemHandler.getSlots());
-        for (int i = 0; i < itemHandler.getSlots(); i++) {
-            ItemStack stack = itemHandler.getStackInSlot(i);
-            output.store("Slot_" + i, ItemStack.CODEC, stack);
-        }
-    }
-
-    @Override
-    protected void loadAdditional(ValueInput input) {
-        super.loadAdditional(input);
-        int slots = input.getIntOr("InventorySlots", itemHandler.getSlots());
-        for (int i = 0; i < slots; i++) {
-            ItemStack stack = input.read("Slot_" + i, ItemStack.CODEC).orElse(ItemStack.EMPTY);
-            if (i < itemHandler.getSlots()) {
-                itemHandler.setStackInSlot(i, stack);
-            }
-        }
     }
 }
