@@ -1,29 +1,26 @@
 package com.valhyi.recyclertable;
 
-import com.valhyi.recyclertable.init.ModBlockEntities;
 import com.valhyi.recyclertable.init.ModBlocks;
-import com.valhyi.recyclertable.init.ModMenuTypes;
+import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 
-// ES: Clase principal del mod cargada por NeoForge 26.2
-// EN: Main mod class loaded by NeoForge 26.2
 @Mod(RecyclerTable.MOD_ID)
 public class RecyclerTable {
-    // ES: Identificador único del mod
-    // EN: Unique mod identifier
     public static final String MOD_ID = "recyclertable";
-    public static final Logger LOGGER = LogManager.getLogger();
 
     public RecyclerTable(IEventBus modEventBus) {
-        LOGGER.info("ES: Inicializando Recycler Table mod | EN: Initializing Recycler Table mod");
-
-        // ES: Registrar los componentes en el bus de eventos del mod
-        // EN: Register components to the mod event bus
+        // Registra los bloques e ítems del mod
         ModBlocks.register(modEventBus);
-        ModBlockEntities.register(modEventBus);
-        ModMenuTypes.register(modEventBus);
+
+        // Añade el bloque a la pestaña creativa de bloques funcionales
+        modEventBus.addListener(this::addCreative);
+    }
+
+    private void addCreative(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
+            event.accept(ModBlocks.RECYCLER_TABLE_ITEM);
+        }
     }
 }
