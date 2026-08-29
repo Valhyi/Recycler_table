@@ -20,6 +20,8 @@ public class RecyclerLogic {
 
         for (RecipeHolder<?> holder : recipeManager.getRecipes()) {
             Recipe<?> recipe = holder.value();
+            
+            // Verificación del resultado utilizando el registro de la receta
             ItemStack recipeOutput = recipe.getResultItem(level.registryAccess());
 
             if (!recipeOutput.isEmpty() 
