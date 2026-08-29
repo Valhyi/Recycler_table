@@ -3,14 +3,14 @@
   "category": "misc",
   "pattern": [
     " D ",
-    "O#O",
+    "OCO",
     "WOW"
   ],
   "key": {
     "D": { "item": "minecraft:diamond" },
     "O": { "item": "minecraft:crying_obsidian" },
-    "#": { "item": "minecraft:crafting_table" },
-    "W": { "tag": "minecraft:planks" }
+    "C": { "item": "minecraft:crafting_table" },
+    "W": { "item": "minecraft:cherry_planks" }
   },
   "result": {
     "count": 1,
