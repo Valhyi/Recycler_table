@@ -4,11 +4,11 @@
   "pattern": [
     " D ",
     "O#O",
-    "W W"
+    "WOW"
   ],
   "key": {
     "D": { "item": "minecraft:diamond" },
-    "O": { "item": "minecraft:obsidian" },
+    "O": { "item": "minecraft:crying_obsidian" },
     "#": { "item": "minecraft:crafting_table" },
     "W": { "tag": "minecraft:planks" }
   },
