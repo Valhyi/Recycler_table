@@ -2,9 +2,6 @@ package com.valhyi.recyclertable.init;
 
 import com.valhyi.recyclertable.RecyclerTable;
 import com.valhyi.recyclertable.block.RecyclerBlock;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
@@ -12,6 +9,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
+import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 public class ModBlocks {
@@ -19,15 +17,14 @@ public class ModBlocks {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(RecyclerTable.MOD_ID);
 
     public static final DeferredBlock<Block> RECYCLER_TABLE = BLOCKS.register("recycler_table",
-        name -> new RecyclerBlock(BlockBehaviour.Properties.of()
-            .setId(ResourceKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(RecyclerTable.MOD_ID, name)))
+        () -> new RecyclerBlock(BlockBehaviour.Properties.of()
             .strength(3.5f, 6.0f)
             .sound(SoundType.WOOD)
             .requiresCorrectToolForDrops()
         )
     );
 
-    public static final DeferredBlock<Item> RECYCLER_TABLE_ITEM = ITEMS.register("recycler_table",
+    public static final DeferredItem<BlockItem> RECYCLER_TABLE_ITEM = ITEMS.register("recycler_table",
         () -> new BlockItem(RECYCLER_TABLE.get(), new Item.Properties())
     );
 
