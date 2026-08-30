@@ -10,7 +10,7 @@
     "D": { "item": "minecraft:diamond" },
     "O": { "item": "minecraft:crying_obsidian" },
     "C": { "item": "minecraft:crafting_table" },
-    "W": { "item": "minecraft:cherry_planks" }
+    "W": { "tag": "minecraft:planks" }
   },
   "result": {
     "count": 1,
