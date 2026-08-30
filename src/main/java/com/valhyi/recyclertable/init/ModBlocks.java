@@ -22,7 +22,8 @@ public class ModBlocks {
             .requiresCorrectToolForDrops()
     );
 
-    public static final DeferredItem<BlockItem> RECYCLER_TABLE_ITEM = ITEMS.registerSimpleBlockItem("recycler_table", RECYCLER_TABLE);
+    public static final DeferredHolder<Item, Item> RECYCLER_TABLE_ITEM = ITEMS.register("recycler_table",
+    () -> new BlockItem(RECYCLER_TABLE.get(), new Item.Properties()));
 
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);
