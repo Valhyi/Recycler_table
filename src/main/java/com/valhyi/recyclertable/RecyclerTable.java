@@ -1,6 +1,8 @@
 package com.valhyi.recyclertable;
 
 import com.valhyi.recyclertable.init.ModBlocks;
+import com.valhyi.recyclertable.init.ModBlockEntities;
+import com.valhyi.recyclertable.init.ModMenuTypes;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -11,10 +13,11 @@ public class RecyclerTable {
     public static final String MOD_ID = "recyclertable";
 
     public RecyclerTable(IEventBus modEventBus) {
-        // Registra los bloques e ítems del mod
+        // AQUÍ ESTABA EL PROBLEMA: Faltaba encender estas clases
         ModBlocks.register(modEventBus);
+        ModBlockEntities.register(modEventBus);
+        ModMenuTypes.register(modEventBus);
 
-        // Añade el bloque a la pestaña creativa de bloques funcionales
         modEventBus.addListener(this::addCreative);
     }
 
