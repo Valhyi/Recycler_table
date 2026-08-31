@@ -35,7 +35,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     @Nullable
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
-        return new RecyclerMenu(containerId, playerInventory, itemHandler);
+        return new RecyclerMenu(containerId, playerInventory, this.worldPosition);
     }
 
     public ItemStackHandler getItemHandler() {
@@ -44,13 +44,11 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
         tag.put("Inventory", itemHandler.serializeNBT(registries));
     }
 
     @Override
     public void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
         itemHandler.deserializeNBT(registries, tag.getCompound("Inventory"));
     }
 }
