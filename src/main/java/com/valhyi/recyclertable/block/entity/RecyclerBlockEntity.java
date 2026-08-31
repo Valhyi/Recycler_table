@@ -3,7 +3,7 @@ package com.valhyi.recyclertable.block.entity;
 import com.valhyi.recyclertable.gui.RecyclerMenu;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
@@ -11,6 +11,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,14 +44,14 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag) {
-        super.saveAdditional(tag);
-        tag.put("Inventory", itemHandler.serializeNBT());
+    protected void saveAdditional(ValueOutput output, HolderLookup.Provider registries) {
+        super.saveAdditional(output, registries);
+        output.store("Inventory", itemHandler.serializeNBT(registries));
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag) {
-        super.loadAdditional(tag);
-        itemHandler.deserializeNBT(tag.getCompound("Inventory"));
+    protected void loadAdditional(ValueInput input, HolderLookup.Provider registries) {
+        super.loadAdditional(input, registries);
+        input.read("Inventory").ifPresent(tag -> itemHandler.deserializeNBT(registries, tag));
     }
 }
