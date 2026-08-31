@@ -3,23 +3,28 @@ package com.valhyi.recyclertable.block.entity;
 import com.valhyi.recyclertable.gui.RecyclerMenu;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.NonNullList;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.Nullable;
 
 public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
-    private final ItemStackHandler itemHandler = new ItemStackHandler(21) {
+    // Reemplaza ItemStackHandler por el contenedor estándar Vanilla
+    private final SimpleContainer container = new SimpleContainer(21) {
         @Override
-        protected void onContentsChanged(int slot) {
-            setChanged();
+        public void setChanged() {
+            super.setChanged();
+            RecyclerBlockEntity.this.setChanged();
         }
     };
 
@@ -35,23 +40,30 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     @Nullable
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
-        return new RecyclerMenu(containerId, playerInventory, this.worldPosition);
+        return new RecyclerMenu(containerId, playerInventory, this.container);
     }
 
-    public ItemStackHandler getItemHandler() {
-        return itemHandler;
+    public SimpleContainer getContainer() {
+        return container;
     }
 
     @Override
-    protected void saveAdditional(BlockEntity.ValueOutput output) {
+    protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
-        output.store("Inventory", CompoundTag.CODEC, itemHandler.serializeNBT());
+        NonNullList<ItemStack> items = NonNullList.withSize(this.container.getContainerSize(), ItemStack.EMPTY);
+        for (int i = 0; i < this.container.getContainerSize(); i++) {
+            items.set(i, this.container.getItem(i));
+        }
+        ContainerHelper.saveAllItems(output, items);
     }
 
     @Override
-    protected void loadAdditional(BlockEntity.ValueInput input) {
+    protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
-        HolderLookup.Provider registries = this.level != null ? this.level.registryAccess() : net.minecraft.core.RegistryAccess.EMPTY;
-        input.read("Inventory", CompoundTag.CODEC).ifPresent(tag -> itemHandler.deserializeNBT(registries, tag));
+        NonNullList<ItemStack> items = NonNullList.withSize(this.container.getContainerSize(), ItemStack.EMPTY);
+        ContainerHelper.loadAllItems(input, items);
+        for (int i = 0; i < items.size(); i++) {
+            this.container.setItem(i, items.get(i));
+        }
     }
 }
