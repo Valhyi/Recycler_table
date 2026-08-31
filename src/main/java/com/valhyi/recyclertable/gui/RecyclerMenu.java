@@ -4,18 +4,17 @@ import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
 import com.valhyi.recyclertable.init.ModMenuTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemStackHandler;
-import net.neoforged.neoforge.items.SlotItemHandler;
 
 public class RecyclerMenu extends AbstractContainerMenu {
-    private final IItemHandler itemHandler;
+    private final Container container;
 
     public RecyclerMenu(int containerId, Inventory playerInventory, RegistryFriendlyByteBuf extraData) {
         this(containerId, playerInventory, extraData.readBlockPos());
@@ -30,32 +29,34 @@ public class RecyclerMenu extends AbstractContainerMenu {
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, BlockEntity blockEntity) {
-        this(containerId, playerInventory, blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getItemHandler() : new ItemStackHandler(21));
+        this(containerId, playerInventory, blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getContainer() : new SimpleContainer(21));
     }
 
-    public RecyclerMenu(int containerId, Inventory playerInventory, IItemHandler itemHandler) {
+    public RecyclerMenu(int containerId, Inventory playerInventory, Container container) {
         super(ModMenuTypes.RECYCLER_MENU.get(), containerId);
-        this.itemHandler = itemHandler;
+        this.container = container;
+        checkContainerSize(container, 21);
+        container.startOpen(playerInventory.player);
 
         // 1. Input Grid (3x3) - Izquierda (Verde) -> Índices 0 al 8
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                this.addSlot(new SlotItemHandler(itemHandler, j + i * 3, 8 + j * 18, 17 + i * 18));
+                this.addSlot(new Slot(container, j + i * 3, 8 + j * 18, 17 + i * 18));
             }
         }
 
         // 2. Zona Central
         // Slot superior: Item en proceso (Rosa) -> Índice 9
-        this.addSlot(new SlotItemHandler(itemHandler, 9, 80, 17));
+        this.addSlot(new Slot(container, 9, 80, 17));
         // Slot inferior izquierdo: Botella vacía (Amarillo) -> Índice 10
-        this.addSlot(new SlotItemHandler(itemHandler, 10, 71, 35));
+        this.addSlot(new Slot(container, 10, 71, 35));
         // Slot inferior derecho: Libros (Rojo) -> Índice 11
-        this.addSlot(new SlotItemHandler(itemHandler, 11, 89, 35));
+        this.addSlot(new Slot(container, 11, 89, 35));
 
         // 3. Output Grid (3x3) - Derecha (Cian) -> Índices 12 a 20
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                this.addSlot(new SlotItemHandler(itemHandler, 12 + j + i * 3, 116 + j * 18, 17 + i * 18));
+                this.addSlot(new Slot(container, 12 + j + i * 3, 116 + j * 18, 17 + i * 18));
             }
         }
 
@@ -79,6 +80,12 @@ public class RecyclerMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return true;
+        return this.container.stillValid(player);
+    }
+
+    @Override
+    public void removed(Player player) {
+        super.removed(player);
+        this.container.stopOpen(player);
     }
 }
