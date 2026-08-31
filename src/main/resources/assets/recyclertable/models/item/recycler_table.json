@@ -1,6 +1,3 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "recyclertable:item/recycler_table"
-  }
+  "parent": "recyclertable:block/recycler_table"
 }
