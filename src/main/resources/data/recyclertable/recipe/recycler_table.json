@@ -1,17 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
-  "category": "misc",
   "pattern": [
-    "III",
-    "C C",
-    "CCC"
+    " D ",
+    "OCO",
+    "SBS"
   ],
   "key": {
-    "I": "minecraft:iron_ingot",
-    "C": "minecraft:cobblestone"
+    "D": "minecraft:diamond",
+    "O": "minecraft:crying_obsidian",
+    "C": "minecraft:crafting_table",
+    "S": "minecraft:stripped_cherry_log",
+    "B": "minecraft:cherry_planks"
   },
-  "result": {
-    "count": 1,
-    "id": "recyclertable:recycler_table"
-  }
+  "result": {}
 }
