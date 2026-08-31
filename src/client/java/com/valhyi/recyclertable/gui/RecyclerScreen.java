@@ -8,12 +8,13 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
-
     private static final ResourceLocation TEXTURE = 
             ResourceLocation.fromNamespaceAndPath(RecyclerTable.MOD_ID, "textures/gui/recycler_gui.png");
 
-    public RecyclerScreen(RecyclerMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
+    public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
+        super(menu, playerInventory, title);
+        this.imageWidth = 176;   // Ancho de tu textura
+        this.imageHeight = 166;  // Alto de tu textura
     }
 
     @Override
@@ -25,6 +26,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        this.renderBg(guiGraphics, partialTick, mouseX, mouseY);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
     }
