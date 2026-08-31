@@ -15,7 +15,7 @@ public class ModBlockEntities {
 
     public static final Supplier<BlockEntityType<RecyclerBlockEntity>> RECYCLER_BLOCK_ENTITY =
             BLOCK_ENTITIES.register("recycler_block_entity", () ->
-                    BlockEntityType.of(RecyclerBlockEntity::new, ModBlocks.RECYCLER_TABLE.get()));
+                    new BlockEntityType<>(RecyclerBlockEntity::new, ModBlocks.RECYCLER_TABLE.get()));
 
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITIES.register(eventBus);
