@@ -39,6 +39,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     @Nullable
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
-        return new RecyclerMenu(containerId, playerInventory, this.worldPosition, this.itemHandler);
-    }
+    // Cambiar this.worldPosition por 'this'
+    return new RecyclerMenu(containerId, playerInventory, this, ContainerLevelAccess.create(level, worldPosition));
+}
 }
