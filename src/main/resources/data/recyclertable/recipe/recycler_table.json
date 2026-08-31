@@ -2,15 +2,13 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    " D ",
-    "OCO",
-    "WOW"
+    "III",
+    "C C",
+    "CCC"
   ],
   "key": {
-    "D": { "item": "minecraft:diamond" },
-    "O": { "item": "minecraft:crying_obsidian" },
-    "C": { "item": "minecraft:crafting_table" },
-    "W": { "tag": "minecraft:planks" }
+    "I": "minecraft:iron_ingot",
+    "C": "minecraft:cobblestone"
   },
   "result": {
     "count": 1,
