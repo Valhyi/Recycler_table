@@ -6,11 +6,15 @@
     "SBS"
   ],
   "key": {
-    "D": "minecraft:diamond",
-    "O": "minecraft:crying_obsidian",
-    "C": "minecraft:crafting_table",
-    "S": "minecraft:stripped_cherry_log",
-    "B": "minecraft:cherry_planks"
+    "D": { "item": "minecraft:diamond" },
+    "O": { "item": "minecraft:crying_obsidian" },
+    "C": { "item": "minecraft:crafting_table" },
+    "S": { "item": "minecraft:stripped_cherry_log" },
+    "B": { "item": "minecraft:cherry_planks" }
   },
+  "result": {
+    "count": 1,
+    "id": "recyclertable:recycler_table"
+  }
   "result": {}
 }
