@@ -10,9 +10,10 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import java.util.function.Supplier;
 
 public class ModBlockEntities {
-    public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
-            DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, RecyclerTable.MOD_ID);
-
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RecyclerBlockEntity>> RECYCLER_BLOCK_ENTITY =
+    BLOCK_ENTITIES.register("recycler", () -> 
+        BlockEntityType.Builder.of(RecyclerBlockEntity::new, ModBlocks.RECYCLER_BLOCK.get()).build(null)
+    );
     public static final Supplier<BlockEntityType<RecyclerBlockEntity>> RECYCLER_BLOCK_ENTITY =
             BLOCK_ENTITIES.register("recycler_block_entity", () ->
                     BlockEntityType.Builder.of((pos, state) -> new RecyclerBlockEntity(pos, state), 
