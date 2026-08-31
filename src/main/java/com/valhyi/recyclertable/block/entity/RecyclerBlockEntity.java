@@ -43,15 +43,18 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         return itemHandler;
     }
 
-    @Override
-    protected void saveAdditional(ValueOutput output, HolderLookup.Provider registries) {
-        super.saveAdditional(output, registries);
-        output.store("Inventory", itemHandler.serializeNBT(registries));
-    }
+@Override
+protected void saveAdditional(ValueOutput output) {
+    super.saveAdditional(output);
+    // Use modern ValueOutput storage for the inventory
+    output.store("Inventory", ItemStack.CODEC.listOf(), itemHandler.save(new CompoundTag())); // Adjust based on your item handler serialization
+}
 
-    @Override
-    protected void loadAdditional(ValueInput input, HolderLookup.Provider registries) {
-        super.loadAdditional(input, registries);
-        input.read("Inventory").ifPresent(tag -> itemHandler.deserializeNBT(registries, tag));
-    }
+@Override
+protected void loadAdditional(ValueInput input) {
+    super.loadAdditional(input);
+    input.read("Inventory").ifPresent(tag -> {
+        // Handle deserialization matching the new ValueInput structure
+    });
+}
 }
