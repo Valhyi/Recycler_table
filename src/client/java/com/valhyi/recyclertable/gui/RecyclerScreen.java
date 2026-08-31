@@ -15,6 +15,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     public RecyclerScreen(RecyclerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
+        this.imageWidth = 176;
+        this.imageHeight = 166;
     }
 
     @Override
