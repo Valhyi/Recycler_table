@@ -15,6 +15,9 @@ public class RecyclerTable {
         ModBlocks.register(modEventBus);
         ModBlockEntities.register(modEventBus);
 
+        if (net.neoforged.fml.loading.FMLEnvironment.dist == net.neoforged.api.distmarker.Dist.CLIENT) {
+        modEventBus.addListener(ClientEvents::registerScreens);
+
         // Evento para añadir ítems al menú creativo
         modEventBus.addListener(this::addCreative);
     }
