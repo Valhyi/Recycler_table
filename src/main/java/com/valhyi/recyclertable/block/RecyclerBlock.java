@@ -1,5 +1,6 @@
 package com.valhyi.recyclertable.block;
 
+import com.mojang.serialization.MapCodec;
 import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionResult;
@@ -13,8 +14,15 @@ import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
 public class RecyclerBlock extends BaseEntityBlock {
+    public static final MapCodec<RecyclerBlock> CODEC = simpleCodec(RecyclerBlock::new);
+
     public RecyclerBlock(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    protected MapCodec<? extends BaseEntityBlock> codec() {
+        return CODEC;
     }
 
     @Override
