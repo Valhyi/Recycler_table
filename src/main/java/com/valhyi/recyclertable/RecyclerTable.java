@@ -2,7 +2,6 @@ package com.valhyi.recyclertable;
 
 import com.valhyi.recyclertable.init.ModBlocks;
 import com.valhyi.recyclertable.init.ModBlockEntities;
-import com.valhyi.recyclertable.init.ModMenuTypes;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -15,15 +14,15 @@ public class RecyclerTable {
     public RecyclerTable(IEventBus modEventBus) {
         ModBlocks.register(modEventBus);
         ModBlockEntities.register(modEventBus);
-        ModMenuTypes.register(modEventBus);
 
+        // Evento para añadir ítems al menú creativo
         modEventBus.addListener(this::addCreative);
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
+        // Añade la mesa a la pestaña de Bloques Funcionales
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
-            // Se añade .get() para extraer el objeto registrado
-            event.accept(ModBlocks.RECYCLER_TABLE_ITEM.get());
+            event.accept(ModBlocks.RECYCLER_TABLE_ITEM);
         }
     }
 }
