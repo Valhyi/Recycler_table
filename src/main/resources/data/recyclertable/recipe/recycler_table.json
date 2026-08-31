@@ -1,15 +1,15 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "misc",
   "pattern": [
     " D ",
     "OCO",
-    "SBS"
+    "BBB"
   ],
   "key": {
     "D": { "item": "minecraft:diamond" },
     "O": { "item": "minecraft:crying_obsidian" },
     "C": { "item": "minecraft:crafting_table" },
-    "S": { "item": "minecraft:stripped_cherry_log" },
     "B": { "item": "minecraft:cherry_planks" }
   },
   "result": {
