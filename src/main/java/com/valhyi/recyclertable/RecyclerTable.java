@@ -13,7 +13,6 @@ public class RecyclerTable {
     public static final String MOD_ID = "recyclertable";
 
     public RecyclerTable(IEventBus modEventBus) {
-        // AQUÍ ESTABA EL PROBLEMA: Faltaba encender estas clases
         ModBlocks.register(modEventBus);
         ModBlockEntities.register(modEventBus);
         ModMenuTypes.register(modEventBus);
@@ -23,7 +22,8 @@ public class RecyclerTable {
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
-            event.accept(ModBlocks.RECYCLER_TABLE_ITEM);
+            // Se añade .get() para extraer el objeto registrado
+            event.accept(ModBlocks.RECYCLER_TABLE_ITEM.get());
         }
     }
 }
