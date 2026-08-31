@@ -1,101 +1,68 @@
 package com.valhyi.recyclertable.gui;
 
-import com.valhyi.recyclertable.init.ModBlocks;
 import com.valhyi.recyclertable.init.ModMenuTypes;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.SlotItemHandler;
 
 public class RecyclerMenu extends AbstractContainerMenu {
-    private final ContainerLevelAccess access;
-    private final IItemHandler inventory;
+    private final IItemHandler itemHandler;
 
-    // Constructor para el cliente
-    public RecyclerMenu(int containerId, Inventory playerInventory, FriendlyByteBuf extraData) {
-        this(containerId, playerInventory, playerInventory.player.level().getBlockEntity(extraData.readBlockPos()), ContainerLevelAccess.NULL);
+    public RecyclerMenu(int containerId, Inventory playerInventory) {
+        this(containerId, playerInventory, new ItemStackHandler(21));
     }
 
-    // Constructor para el servidor
-    public RecyclerMenu(int containerId, Inventory playerInventory, BlockEntity entity, ContainerLevelAccess access) {
+    public RecyclerMenu(int containerId, Inventory playerInventory, IItemHandler itemHandler) {
         super(ModMenuTypes.RECYCLER_MENU.get(), containerId);
-        this.access = access;
+        this.itemHandler = itemHandler;
 
-        // Si la entidad tiene un inventario, lo usamos; si no, creamos uno vacío temporal
-        if (entity instanceof com.valhyi.recyclertable.block.entity.RecyclerBlockEntity recyclerEntity) {
-            this.inventory = recyclerEntity.getItemHandler();
-        } else {
-            this.inventory = new ItemStackHandler(21);
-        }
-
-        // Inventario Izquierdo (3x3)
+        // 1. Input Grid (3x3) - Izquierda (Verde)
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                this.addSlot(new SlotItemHandler(inventory, j + i * 3, 8 + j * 18, 17 + i * 18));
+                this.addSlot(new SlotItemHandler(itemHandler, j + i * 3, 8 + j * 18, 17 + i * 18));
             }
         }
 
-        // Centro (Pirámide de 3 slots)
-        this.addSlot(new SlotItemHandler(inventory, 9, 80, 17));
-        this.addSlot(new SlotItemHandler(inventory, 10, 71, 35));
-        this.addSlot(new SlotItemHandler(inventory, 11, 89, 35));
+        // 2. Zona Central (Centro)
+        // Slot superior: Item en proceso (Rosa) -> Índice 9
+        this.addSlot(new SlotItemHandler(itemHandler, 9, 80, 17));
+        // Slot inferior izquierdo: Botella vacía (Amarillo) -> Índice 10
+        this.addSlot(new SlotItemHandler(itemHandler, 10, 71, 35));
+        // Slot inferior derecho: Libros (Rojo) -> Índice 11
+        this.addSlot(new SlotItemHandler(itemHandler, 11, 89, 35));
 
-        // Inventario Derecho (3x3)
+        // 3. Output Grid (3x3) - Derecha (Cian) -> Índices 12 a 20
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                this.addSlot(new SlotItemHandler(inventory, 12 + j + i * 3, 116 + j * 18, 17 + i * 18));
+                this.addSlot(new SlotItemHandler(itemHandler, 12 + j + i * 3, 116 + j * 18, 17 + i * 18));
             }
         }
 
-        // Inventario del Jugador (27 slots)
+        // 4. Inventario del jugador
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 9; ++j) {
                 this.addSlot(new Slot(playerInventory, j + i * 9 + 9, 8 + j * 18, 84 + i * 18));
             }
         }
 
-        // Hotbar del Jugador (9 slots)
+        // 5. Hotbar del jugador
         for (int k = 0; k < 9; ++k) {
             this.addSlot(new Slot(playerInventory, k, 8 + k * 18, 142));
         }
     }
 
     @Override
-    public boolean stillValid(Player player) {
-        return stillValid(this.access, player, ModBlocks.RECYCLER_TABLE.get());
+    public ItemStack quickMoveStack(Player player, int index) {
+        return ItemStack.EMPTY;
     }
 
     @Override
-    public ItemStack quickMoveStack(Player player, int index) {
-        ItemStack itemstack = ItemStack.EMPTY;
-        Slot slot = this.slots.get(index);
-
-        if (slot != null && slot.hasItem()) {
-            ItemStack itemstack1 = slot.getItem();
-            itemstack = itemstack1.copy();
-
-            // Lógica de Shift-Click: Si hace click en la mesa (índices 0-20), mueve al jugador (21-56)
-            if (index < 21) {
-                if (!this.moveItemStackTo(itemstack1, 21, this.slots.size(), true)) {
-                    return ItemStack.EMPTY;
-                }
-            } else if (!this.moveItemStackTo(itemstack1, 0, 21, false)) { // Del jugador a la mesa
-                return ItemStack.EMPTY;
-            }
-
-            if (itemstack1.isEmpty()) {
-                slot.setByPlayer(ItemStack.EMPTY);
-            } else {
-                slot.setChanged();
-            }
-        }
-        return itemstack;
+    public boolean stillValid(Player player) {
+        return true;
     }
 }
