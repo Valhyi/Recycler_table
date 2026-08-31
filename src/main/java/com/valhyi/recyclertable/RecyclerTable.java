@@ -15,15 +15,16 @@ public class RecyclerTable {
         ModBlocks.register(modEventBus);
         ModBlockEntities.register(modEventBus);
 
-        if (net.neoforged.fml.loading.FMLEnvironment.dist == net.neoforged.api.distmarker.Dist.CLIENT) {
-        modEventBus.addListener(ClientEvents::registerScreens);
-
-        // Evento para añadir ítems al menú creativo
+        // El registro del menú creativo va en el bus común
         modEventBus.addListener(this::addCreative);
+
+        // Registro de pantallas exclusivo para el cliente
+        if (net.neoforged.fml.loading.FMLEnvironment.dist == net.neoforged.api.distmarker.Dist.CLIENT) {
+            modEventBus.addListener(com.valhyi.recyclertable.event.ClientEvents::registerScreens);
+        }
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        // Añade la mesa a la pestaña de Bloques Funcionales
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
             event.accept(ModBlocks.RECYCLER_TABLE_ITEM);
         }
