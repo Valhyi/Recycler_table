@@ -3,7 +3,6 @@ package com.valhyi.recyclertable.block.entity;
 import com.valhyi.recyclertable.gui.RecyclerMenu;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.MenuProvider;
@@ -43,12 +42,14 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.put("Inventory", itemHandler.serializeNBT(registries));
+    protected void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        tag.put("Inventory", itemHandler.serializeNBT());
     }
 
     @Override
-    public void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        itemHandler.deserializeNBT(registries, tag.getCompound("Inventory"));
+    protected void loadAdditional(CompoundTag tag) {
+        super.loadAdditional(tag);
+        itemHandler.deserializeNBT(tag.getCompound("Inventory"));
     }
 }
