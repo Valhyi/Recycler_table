@@ -5,18 +5,17 @@ import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
-import java.util.Set;
+import java.util.function.Supplier;
 
 public class ModBlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, RecyclerTable.MOD_ID);
 
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RecyclerBlockEntity>> RECYCLER_BE =
-            BLOCK_ENTITIES.register("recycler_be",
-                    () -> new BlockEntityType<>(RecyclerBlockEntity::new, Set.of(ModBlocks.RECYCLER_TABLE.get())));
+    public static final Supplier<BlockEntityType<RecyclerBlockEntity>> RECYCLER_BLOCK_ENTITY =
+            BLOCK_ENTITIES.register("recycler_block_entity", () ->
+                    BlockEntityType.Builder.of(RecyclerBlockEntity::new, ModBlocks.RECYCLER_TABLE.get()).build(null));
 
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITIES.register(eventBus);
