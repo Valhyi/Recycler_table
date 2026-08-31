@@ -16,7 +16,7 @@ import org.jetbrains.annotations.Nullable;
 
 public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
-    private final ItemStackHandler itemHandler = new ItemStackHandler(18) {
+    private final ItemStackHandler itemHandler = new ItemStackHandler(21) {
         @Override
         protected void onContentsChanged(int slot) {
             setChanged();
