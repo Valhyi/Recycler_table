@@ -8,13 +8,10 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
-// Dist.CLIENT indica que esta clase SOLO se compilará en la versión visual del juego
-@EventBusSubscriber(modid = RecyclerTable.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = RecyclerTable.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
 public class ClientEvents {
-    
     @SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
-        // Vincula el "cerebro" (RecyclerMenu) con lo "visual" (RecyclerScreen)
         event.register(ModMenuTypes.RECYCLER_MENU.get(), RecyclerScreen::new);
     }
 }
