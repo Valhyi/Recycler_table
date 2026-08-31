@@ -2,19 +2,18 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    " D ",
-    "OCO",
-    "BBB"
+    " A ",
+    "BCB",
+    "DDD"
   ],
   "key": {
-    "D": { "item": "minecraft:diamond" },
-    "O": { "item": "minecraft:crying_obsidian" },
-    "C": { "item": "minecraft:crafting_table" },
-    "B": { "item": "minecraft:cherry_planks" }
+    "A": "minecraft:diamond",
+    "B": "minecraft:crying_obsidian",
+    "C": "minecraft:crafting_table",
+    "D": "minecraft:cherry_planks"
   },
   "result": {
     "count": 1,
     "id": "recyclertable:recycler_table"
   }
-  "result": {}
 }
