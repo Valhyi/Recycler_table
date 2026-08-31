@@ -1,11 +1,15 @@
 package com.valhyi.recyclertable.gui;
 
+import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
 import com.valhyi.recyclertable.init.ModMenuTypes;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.SlotItemHandler;
@@ -13,22 +17,34 @@ import net.neoforged.neoforge.items.SlotItemHandler;
 public class RecyclerMenu extends AbstractContainerMenu {
     private final IItemHandler itemHandler;
 
-    public RecyclerMenu(int containerId, Inventory playerInventory) {
-        this(containerId, playerInventory, new ItemStackHandler(21));
+    public RecyclerMenu(int containerId, Inventory playerInventory, RegistryFriendlyByteBuf extraData) {
+        this(containerId, playerInventory, extraData.readBlockPos());
+    }
+
+    public RecyclerMenu(int containerId, Inventory playerInventory, BlockPos pos) {
+        this(containerId, playerInventory, getBlockEntity(playerInventory, pos));
+    }
+
+    private static BlockEntity getBlockEntity(Inventory playerInventory, BlockPos pos) {
+        return playerInventory.player.level().getBlockEntity(pos);
+    }
+
+    public RecyclerMenu(int containerId, Inventory playerInventory, BlockEntity blockEntity) {
+        this(containerId, playerInventory, blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getItemHandler() : new ItemStackHandler(21));
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, IItemHandler itemHandler) {
         super(ModMenuTypes.RECYCLER_MENU.get(), containerId);
         this.itemHandler = itemHandler;
 
-        // 1. Input Grid (3x3) - Izquierda (Verde)
+        // 1. Input Grid (3x3) - Izquierda (Verde) -> Índices 0 al 8
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
                 this.addSlot(new SlotItemHandler(itemHandler, j + i * 3, 8 + j * 18, 17 + i * 18));
             }
         }
 
-        // 2. Zona Central (Centro)
+        // 2. Zona Central
         // Slot superior: Item en proceso (Rosa) -> Índice 9
         this.addSlot(new SlotItemHandler(itemHandler, 9, 80, 17));
         // Slot inferior izquierdo: Botella vacía (Amarillo) -> Índice 10
