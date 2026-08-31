@@ -43,16 +43,15 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
-    protected void saveAdditional(ValueOutput output) {
+    protected void saveAdditional(BlockEntity.ValueOutput output) {
         super.saveAdditional(output);
-        HolderLookup.Provider registries = this.level != null ? this.level.registryAccess() : net.minecraft.core.RegistryAccess.EMPTY;
-        output.store("Inventory", CompoundTag.CODEC, itemHandler.serializeNBT(registries));
+        output.store("Inventory", CompoundTag.CODEC, itemHandler.serializeNBT());
     }
 
     @Override
-    protected void loadAdditional(ValueInput input) {
+    protected void loadAdditional(BlockEntity.ValueInput input) {
         super.loadAdditional(input);
         HolderLookup.Provider registries = this.level != null ? this.level.registryAccess() : net.minecraft.core.RegistryAccess.EMPTY;
-        input.<CompoundTag>read("Inventory", CompoundTag.CODEC).ifPresent(tag -> itemHandler.deserializeNBT(registries, tag));
+        input.read("Inventory", CompoundTag.CODEC).ifPresent(tag -> itemHandler.deserializeNBT(registries, tag));
     }
 }
