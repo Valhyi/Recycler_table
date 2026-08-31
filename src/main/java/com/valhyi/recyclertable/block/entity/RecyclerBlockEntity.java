@@ -13,6 +13,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.inventory.ContainerLevelAccess;
 
 public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
