@@ -35,7 +35,7 @@ public class RecyclerMenu extends AbstractContainerMenu {
     public RecyclerMenu(int containerId, Inventory playerInventory, Container container) {
         super(ModMenuTypes.RECYCLER_MENU.get(), containerId);
         this.container = container;
-        checkContainerSize(container, 12);
+        checkContainerSize(container, 21);
         container.startOpen(playerInventory.player);
 
         // 1. Input Grid (3x3) - Izquierda (Verde) -> Índices 0 al 8
