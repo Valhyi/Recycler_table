@@ -42,7 +42,7 @@ public class RecyclerBlock extends Block implements EntityBlock {
                 serverPlayer.openMenu(menuProvider);
             }
         }
-        return InteractionResult.sidedSuccess(level.isClientSide());
+        return InteractionResult.SUCCESS;
     }
 
     @Override
@@ -53,6 +53,6 @@ public class RecyclerBlock extends Block implements EntityBlock {
                 serverPlayer.openMenu(menuProvider);
             }
         }
-        return InteractionResult.sidedSuccess(level.isClientSide());
+        return InteractionResult.SUCCESS;
     }
 }
