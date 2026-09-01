@@ -1,4 +1,4 @@
-package com.valhyi.recyclertable.gui;https://github.com/Valhyi/Recycler_table/blob/main/src/client/java/com/valhyi/recyclertable/gui/RecyclerScreen.java
+package com.valhyi.recyclertable.gui;
 
 import com.valhyi.recyclertable.RecyclerTable;
 import net.minecraft.client.gui.GuiGraphics;
