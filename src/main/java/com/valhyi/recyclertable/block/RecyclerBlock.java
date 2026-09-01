@@ -2,8 +2,10 @@ package com.valhyi.recyclertable.block;
 
 import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -26,27 +28,31 @@ public class RecyclerBlock extends Block implements EntityBlock {
         return new RecyclerBlockEntity(pos, state);
     }
 
-    // Se ejecuta cuando haces clic con la mano vacía
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (!level.isClientSide()) {
-            BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (blockEntity instanceof RecyclerBlockEntity recycler) {
-                player.openMenu(recycler, pos);
-            }
-        }
-        return InteractionResult.SUCCESS;
+    public MenuProvider getMenuProvider(BlockState state, Level level, BlockPos pos) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof MenuProvider ? (MenuProvider) blockEntity : null;
     }
 
-    // Se ejecuta cuando haces clic sosteniendo un ítem o herramienta en la mano
     @Override
-    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
-        if (!level.isClientSide()) {
-            BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (blockEntity instanceof RecyclerBlockEntity recycler) {
-                player.openMenu(recycler, pos);
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+        if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
+            MenuProvider menuProvider = this.getMenuProvider(state, level, pos);
+            if (menuProvider != null) {
+                serverPlayer.openMenu(menuProvider);
             }
         }
-        return InteractionResult.SUCCESS;
+        return InteractionResult.sidedSuccess(level.isClientSide());
+    }
+
+    @Override
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
+        if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
+            MenuProvider menuProvider = this.getMenuProvider(state, level, pos);
+            if (menuProvider != null) {
+                serverPlayer.openMenu(menuProvider);
+            }
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide());
     }
 }
