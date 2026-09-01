@@ -11,11 +11,15 @@ import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 public class RecyclerTable {
     public static final String MOD_ID = "recyclertable";
 
-    public RecyclerTable(IEventBus modEventBus) {
-        ModBlocks.register(modEventBus);
-        ModBlockEntities.register(modEventBus);
-
-        modEventBus.addListener(this::addCreative);
+public RecyclerTable(IEventBus modEventBus, ModContainer modContainer) {
+    // Registra tus menús aquí
+    ModMenuTypes.MENUS.register(modEventBus);
+    
+    // (Asegúrate de que también tengas registrados tus bloques y entidades de bloques si no lo has hecho)
+    ModBlocks.BLOCKS.register(modEventBus);
+    ModBlocks.ITEMS.register(modEventBus);
+    ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+}
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
