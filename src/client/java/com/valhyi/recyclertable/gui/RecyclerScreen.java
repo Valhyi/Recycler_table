@@ -14,8 +14,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         super(menu, playerInventory, title);
         
         // Reemplaza estos números si el tamaño en píxeles de tu imagen PNG es diferente:
-        this.imageWidth = 215;  // Ancho exacto de tu textura PNG
-        this.imageHeight = 170; // Alto exacto de tu textura PNG
+        this.imageWidth = 220;  // Ancho exacto de tu textura PNG
+        this.imageHeight = 210; // Alto exacto de tu textura PNG
     }
 
     @Override
