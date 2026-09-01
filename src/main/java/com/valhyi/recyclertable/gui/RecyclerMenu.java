@@ -29,13 +29,13 @@ public class RecyclerMenu extends AbstractContainerMenu {
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, BlockEntity blockEntity) {
-        this(containerId, playerInventory, blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getContainer() : new SimpleContainer(21));
+        this(containerId, playerInventory, blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getContainer() : new SimpleContainer(12));
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, Container container) {
         super(ModMenuTypes.RECYCLER_MENU.get(), containerId);
         this.container = container;
-        checkContainerSize(container, 21);
+        checkContainerSize(container, 12);
         container.startOpen(playerInventory.player);
 
         // 1. Input Grid (3x3) - Izquierda (Verde) -> Índices 0 al 8
@@ -46,12 +46,9 @@ public class RecyclerMenu extends AbstractContainerMenu {
         }
 
         // 2. Zona Central
-        // Slot superior: Item en proceso (Rosa) -> Índice 9
-        this.addSlot(new Slot(container, 9, 80, 17));
-        // Slot inferior izquierdo: Botella vacía (Amarillo) -> Índice 10
-        this.addSlot(new Slot(container, 10, 71, 35));
-        // Slot inferior derecho: Libros (Rojo) -> Índice 11
-        this.addSlot(new Slot(container, 11, 89, 35));
+        this.addSlot(new Slot(container, 9, 80, 17));        // Slot superior: Item en proceso (Rosa) -> Índice 9
+        this.addSlot(new Slot(container, 10, 71, 35));        // Slot inferior izquierdo: Botella vacía (Amarillo) -> Índice 10
+        this.addSlot(new Slot(container, 11, 89, 35));        // Slot inferior derecho: Libros (Rojo) -> Índice 11
 
         // 3. Output Grid (3x3) - Derecha (Cian) -> Índices 12 a 20
         for (int i = 0; i < 3; i++) {
