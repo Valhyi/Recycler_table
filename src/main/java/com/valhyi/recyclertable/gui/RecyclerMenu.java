@@ -29,7 +29,7 @@ public class RecyclerMenu extends AbstractContainerMenu {
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, BlockEntity blockEntity) {
-        this(containerId, playerInventory, blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getContainer() : new SimpleContainer(12));
+        this(containerId, playerInventory, blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getContainer() : new SimpleContainer(21));
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, Container container) {
@@ -38,19 +38,19 @@ public class RecyclerMenu extends AbstractContainerMenu {
         checkContainerSize(container, 21);
         container.startOpen(playerInventory.player);
 
-        // 1. Input Grid (3x3) - Izquierda (Verde) -> Índices 0 al 8
+        // 1. Input Grid (3x3) - Izquierda -> Índices 0 al 8
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
                 this.addSlot(new Slot(container, j + i * 3, 8 + j * 18, 17 + i * 18));
             }
         }
 
-        // 2. Zona Central
-        this.addSlot(new Slot(container, 9, 80, 17));        // Slot superior: Item en proceso (Rosa) -> Índice 9
-        this.addSlot(new Slot(container, 10, 71, 35));        // Slot inferior izquierdo: Botella vacía (Amarillo) -> Índice 10
-        this.addSlot(new Slot(container, 11, 89, 35));        // Slot inferior derecho: Libros (Rojo) -> Índice 11
+        // 2. Zona Central -> Índices 9, 10 y 11
+        this.addSlot(new Slot(container, 9, 80, 17));        // Slot superior: Item en proceso
+        this.addSlot(new Slot(container, 10, 71, 35));       // Slot inferior izquierdo: Botella vacía
+        this.addSlot(new Slot(container, 11, 89, 35));       // Slot inferior derecho: Libros
 
-        // 3. Output Grid (3x3) - Derecha (Cian) -> Índices 12 a 20
+        // 3. Output Grid (3x3) - Derecha -> Índices 12 al 20
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
                 this.addSlot(new Slot(container, 12 + j + i * 3, 116 + j * 18, 17 + i * 18));
