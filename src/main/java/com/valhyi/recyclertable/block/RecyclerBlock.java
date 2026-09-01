@@ -39,7 +39,8 @@ public class RecyclerBlock extends Block implements EntityBlock {
         if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
             MenuProvider menuProvider = this.getMenuProvider(state, level, pos);
             if (menuProvider != null) {
-                serverPlayer.openMenu(menuProvider);
+                // Aquí enviamos la posición (pos) para que el menú la pueda leer correctamente
+                serverPlayer.openMenu(menuProvider, pos);
             }
         }
         return InteractionResult.SUCCESS;
@@ -50,7 +51,8 @@ public class RecyclerBlock extends Block implements EntityBlock {
         if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
             MenuProvider menuProvider = this.getMenuProvider(state, level, pos);
             if (menuProvider != null) {
-                serverPlayer.openMenu(menuProvider);
+                // Enviamos la posición también al interactuar con un ítem en la mano
+                serverPlayer.openMenu(menuProvider, pos);
             }
         }
         return InteractionResult.SUCCESS;
