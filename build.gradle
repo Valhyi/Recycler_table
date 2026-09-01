@@ -13,14 +13,17 @@ base {
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 neoForge {
-    version = '26.2.0.70'
-
-    runs {
+    enable {
+        version = '26.2.0.70'
+        disableRecompilation = false
+    }
+    // ... el resto de tu bloque runs/mods igual
+runs {
         client {
             client()
         }
     }
-
+}
     mods {
         recyclertable {
             sourceSet(sourceSets.main)
