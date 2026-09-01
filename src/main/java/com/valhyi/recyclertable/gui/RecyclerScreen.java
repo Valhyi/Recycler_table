@@ -12,10 +12,14 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
-        
-        // Establece el tamaño de la textura en el constructor
-        this.imageWidth = 220;  // Ancho exacto de tu textura PNG
-        this.imageHeight = 210; // Alto exacto de tu textura PNG
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        // Establece el tamaño de la textura después de inicializar
+        this.imageWidth = 220;
+        this.imageHeight = 210;
     }
 
     @Override
