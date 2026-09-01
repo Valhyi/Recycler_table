@@ -34,17 +34,19 @@ public class RecyclerBlock extends Block implements EntityBlock {
         return blockEntity instanceof MenuProvider ? (MenuProvider) blockEntity : null;
     }
 
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
-            MenuProvider menuProvider = this.getMenuProvider(state, level, pos);
-            if (menuProvider != null) {
-                // Aquí enviamos la posición (pos) para que el menú la pueda leer correctamente
-                serverPlayer.openMenu(menuProvider, pos);
-            }
-        }
+@Override
+protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+    if (level.isClientSide) {
         return InteractionResult.SUCCESS;
+    } else {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity instanceof RecyclerBlockEntity recyclerBlockEntity) {
+            // Esto le ordena al servidor abrir la interfaz al jugador
+            player.openMenu(recyclerBlockEntity, pos);
+        }
+        return InteractionResult.CONSUME;
     }
+}
 
     @Override
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
