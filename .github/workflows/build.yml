@@ -24,8 +24,8 @@ jobs:
       uses: gradle/actions/setup-gradle@v4
 
     # Ejecuta la compilación forzando la actualización del caché y dependencias
-    - name: Build Mod
-      run: gradle build --refresh-dependencies --no-daemon
+- name: Build Mod
+  run: ./gradlew build --refresh-dependencies --no-daemon
 
     - name: Upload Mod Jar
       uses: actions/upload-artifact@v4
