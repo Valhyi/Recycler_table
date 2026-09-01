@@ -36,16 +36,18 @@ public class RecyclerBlock extends Block implements EntityBlock {
 
 @Override
 protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-if (level.isClientSide()) {
-        return InteractionResult.SUCCESS;
-    } else {
+    if (!level.isClientSide()) {
         BlockEntity blockEntity = level.getBlockEntity(pos);
+        System.out.println("LOG RECYCLER: Click detectado. BlockEntity encontrado = " + blockEntity);
+        
         if (blockEntity instanceof RecyclerBlockEntity recyclerBlockEntity) {
-            // Esto le ordena al servidor abrir la interfaz al jugador
+            System.out.println("LOG RECYCLER: Entidad correcta. Intentando abrir menú...");
             player.openMenu(recyclerBlockEntity, pos);
+        } else {
+            System.out.println("LOG RECYCLER: FALLO - El BlockEntity es nulo o no es RecyclerBlockEntity.");
         }
-        return InteractionResult.CONSUME;
     }
+    return InteractionResult.SUCCESS;
 }
 
     @Override
