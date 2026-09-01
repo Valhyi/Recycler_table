@@ -31,10 +31,10 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         super(ModBlockEntities.RECYCLER_BLOCK_ENTITY.get(), pos, state);
     }
 
-    @Override
-    public Component getDisplayName() {
-        return Component.translatable("container.recyclertable.recycler");
-    }
+@Override
+public Component getDisplayName() {
+    return Component.translatable("container.recyclertable.recycler_table");
+}
 
     @Nullable
     @Override
