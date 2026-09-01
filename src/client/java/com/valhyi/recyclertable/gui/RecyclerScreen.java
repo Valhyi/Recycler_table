@@ -1,4 +1,4 @@
-package com.valhyi.recyclertable.gui;
+package com.valhyi.recyclertable.gui;https://github.com/Valhyi/Recycler_table/blob/main/src/client/java/com/valhyi/recyclertable/gui/RecyclerScreen.java
 
 import com.valhyi.recyclertable.RecyclerTable;
 import net.minecraft.client.gui.GuiGraphics;
@@ -14,8 +14,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         super(menu, playerInventory, title);
         
         // Reemplaza estos números si el tamaño en píxeles de tu imagen PNG es diferente:
-        this.imageWidth = 178;  // Ancho exacto de tu textura PNG
-        this.imageHeight = 166; // Alto exacto de tu textura PNG
+        this.imageWidth = 215;  // Ancho exacto de tu textura PNG
+        this.imageHeight = 170; // Alto exacto de tu textura PNG
     }
 
     @Override
