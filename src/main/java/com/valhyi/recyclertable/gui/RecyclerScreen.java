@@ -13,7 +13,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
         
-        // Reemplaza estos números si el tamaño en píxeles de tu imagen PNG es diferente:
+        // Establece el tamaño de la textura en el constructor
         this.imageWidth = 220;  // Ancho exacto de tu textura PNG
         this.imageHeight = 210; // Alto exacto de tu textura PNG
     }
