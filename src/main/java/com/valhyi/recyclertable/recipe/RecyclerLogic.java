@@ -4,7 +4,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.common.util.NeoForgeExtraApisConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -64,7 +63,8 @@ public class RecyclerLogic {
         List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
         
         // Verificar si tiene encantamientos - Minecraft 26.2
-        Map<Enchantment, Integer> enchantmentsMap = inputStack.getEnchantsAtLevel(0);
+        // ItemStack#getEnchantments() retorna una vista read-only del mapa de encantamientos
+        Map<Enchantment, Integer> enchantmentsMap = inputStack.getEnchantments().copyTag().getAllEnchantments();
         boolean isEnchanted = !enchantmentsMap.isEmpty();
         boolean hasEmptyBottle = !emptyBottle.isEmpty();
         boolean hasBook = !book.isEmpty();
@@ -83,7 +83,7 @@ public class RecyclerLogic {
 
             // Crear libro con encantamientos (Cut & Paste de TODOS los encantamientos)
             ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
-            copyAllEnchantments(inputStack, enchantedBook, enchantmentsMap);
+            copyAllEnchantments(inputStack, enchantedBook);
             results.add(enchantedBook);
 
             // Crear botella de XP
@@ -101,7 +101,9 @@ public class RecyclerLogic {
      * Copia TODOS los encantamientos del item origen al libro (Cut & Paste completo)
      * Mantiene los niveles de encantamiento exactamente igual: Sharpness V -> Sharpness V
      */
-    private static void copyAllEnchantments(ItemStack source, ItemStack target, Map<Enchantment, Integer> enchantmentsMap) {
+    private static void copyAllEnchantments(ItemStack source, ItemStack target) {
+        Map<Enchantment, Integer> enchantmentsMap = source.getEnchantments().copyTag().getAllEnchantments();
+        
         // Iterar sobre el mapa de encantamientos
         for (Map.Entry<Enchantment, Integer> entry : enchantmentsMap.entrySet()) {
             Enchantment enchantment = entry.getKey();
