@@ -12,34 +12,48 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
 public class RecyclerBlock extends Block implements EntityBlock {
-
     public RecyclerBlock(Properties properties) {
         super(properties);
     }
 
-    @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new RecyclerBlockEntity(pos, state);
     }
 
+    /**
+     * Registra el BlockEntityTicker para que Minecraft ejecute automáticamente
+     * el tick del RecyclerBlockEntity solo cuando está cargado
+     */
+    @Nullable
     @Override
-    public MenuProvider getMenuProvider(BlockState state, Level level, BlockPos pos) {
-        BlockEntity blockEntity = level.getBlockEntity(pos);
-        return blockEntity instanceof MenuProvider ? (MenuProvider) blockEntity : null;
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
+        // Solo ejecutamos en el lado del servidor
+        if (level.isClientSide) {
+            return null;
+        }
+        
+        // Retorna el ticker que ejecutará el método tick() del BlockEntity
+        return (lvl, pos, st, blockEntity) -> {
+            if (blockEntity instanceof RecyclerBlockEntity recycler) {
+                recycler.tick(lvl, pos, st);
+            }
+        };
     }
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (!level.isClientSide()) {
-            BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (blockEntity instanceof RecyclerBlockEntity recyclerBlockEntity) {
-                player.openMenu(recyclerBlockEntity, pos);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            RecyclerBlockEntity recyclerBlockEntity = (RecyclerBlockEntity) level.getBlockEntity(pos);
+            if (recyclerBlockEntity != null) {
+                serverPlayer.openMenu(recyclerBlockEntity, pos);
             }
         }
         return InteractionResult.SUCCESS;
@@ -47,8 +61,8 @@ public class RecyclerBlock extends Block implements EntityBlock {
 
     @Override
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
-        if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
-            MenuProvider menuProvider = this.getMenuProvider(state, level, pos);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            MenuProvider menuProvider = state.getMenuProvider(level, pos);
             if (menuProvider != null) {
                 serverPlayer.openMenu(menuProvider, pos);
             }
