@@ -15,6 +15,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
@@ -59,9 +60,11 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
      * Slot 10: Botella vacía (restringido)
      * Slot 11: Libro (restringido)
      * Slots 12-20: Output Grid
+     * 
+     * Este método se ejecuta automáticamente cada tick gracias a BlockEntityTicker
      */
-    public void tick() {
-        if (this.level == null || this.level.isClientSide()) {
+    public void tick(Level level, BlockPos pos, BlockState state) {
+        if (level == null || level.isClientSide()) {
             return;
         }
 
@@ -77,7 +80,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         // Buscar item reciclable en el grid de entrada (slots 0-8)
         for (int i = 0; i < 9; i++) {
             ItemStack inputItem = container.getItem(i);
-            if (!inputItem.isEmpty() && RecyclerLogic.canRecycle(inputItem, this.level)) {
+            if (!inputItem.isEmpty() && RecyclerLogic.canRecycle(inputItem, level)) {
                 // Iniciar procesamiento
                 processingTicks = PROCESSING_TIME;
                 // Guardar el item en proceso en el slot central (slot 9)
