@@ -48,12 +48,14 @@ public class RecyclerTable {
 
         // Procesar ticks en todos los mundos del servidor
         for (ServerLevel level : event.getServer().getAllLevels()) {
-            // Iterar sobre todos los BlockEntities cargados
-            for (BlockEntity blockEntity : level.blockEntityList) {
-                if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
-                    recyclerEntity.tick();
+            // Iterar sobre todos los chunks cargados y sus BlockEntities
+            level.getChunkSource().chunkMap.getChunks().forEach(chunk -> {
+                for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
+                    if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
+                        recyclerEntity.tick();
+                    }
                 }
-            }
+            });
         }
     }
 }
