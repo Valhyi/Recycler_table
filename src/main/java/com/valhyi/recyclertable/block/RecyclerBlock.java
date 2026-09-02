@@ -1,9 +1,7 @@
 package com.valhyi.recyclertable.block;
 
-import com.valhyi.recyclertable.block.entity.HopperIntegration;
 import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -40,7 +38,6 @@ public class RecyclerBlock extends Block implements EntityBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide()) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
-            
             if (blockEntity instanceof RecyclerBlockEntity recyclerBlockEntity) {
                 player.openMenu(recyclerBlockEntity, pos);
             }
@@ -57,18 +54,5 @@ public class RecyclerBlock extends Block implements EntityBlock {
             }
         }
         return InteractionResult.SUCCESS;
-    }
-
-    /**
-     * Soporte para tolvas (Hoppers)
-     * Permite insertar items en el input grid (slots 0-8)
-     */
-    public boolean hasAnalogOutputSignal(BlockState state) {
-        return false;
-    }
-
-    @Nullable
-    public static BlockEntity getBlockEntityForHopper(Level level, BlockPos pos) {
-        return level.getBlockEntity(pos);
     }
 }

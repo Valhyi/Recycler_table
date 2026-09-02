@@ -48,7 +48,7 @@ public class RecyclerSlots {
 
         @Override
         public boolean mayPlace(ItemStack itemStack) {
-            return false; // No se puede colocar items en output
+            return false;
         }
 
         @Override
@@ -59,7 +59,6 @@ public class RecyclerSlots {
 
     /**
      * Slot de proceso (solo lectura)
-     * Muestra el item siendo procesado actualmente
      */
     public static class ProcessSlot extends Slot {
         public ProcessSlot(Container container, int index, int x, int y) {
