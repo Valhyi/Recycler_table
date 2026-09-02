@@ -1,8 +1,13 @@
 package com.valhyi.recyclertable.recipe;
 
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.loot.LootContext;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -77,13 +82,30 @@ public class RecyclerLogic {
             // Devolver ingredientes
             results.addAll(ingredients);
 
-            // TODO: Botella de XP
-            // TODO: Libro con encantamientos (copiar encantamientos del item)
+            // Crear libro con encantamientos (Cut & Paste de encantamientos)
+            ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
+            copyEnchantments(inputStack, enchantedBook);
+            results.add(enchantedBook);
+
+            // Crear botella de XP
+            ItemStack xpBottle = new ItemStack(Items.EXPERIENCE_BOTTLE);
+            results.add(xpBottle);
         } else {
             // Sin encantamientos, solo devolver ingredientes
             results.addAll(ingredients);
         }
 
         return results;
+    }
+
+    /**
+     * Copia TODOS los encantamientos del item origen al libro (Cut & Paste)
+     */
+    private static void copyEnchantments(ItemStack source, ItemStack target) {
+        if (source.hasEnchantments()) {
+            source.getAllEnchantments().forEach((enchantment, level) -> {
+                target.enchant(enchantment, level);
+            });
+        }
     }
 }
