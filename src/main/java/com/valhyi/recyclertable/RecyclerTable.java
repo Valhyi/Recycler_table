@@ -7,6 +7,7 @@ import com.valhyi.recyclertable.init.ModMenuTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -48,14 +49,14 @@ public class RecyclerTable {
 
         // Procesar ticks en todos los mundos del servidor
         for (ServerLevel level : event.getServer().getAllLevels()) {
-            // Iterar sobre todos los chunks cargados y sus BlockEntities
-            level.getChunkSource().chunkMap.getChunks().forEach(chunk -> {
+            // Iterar sobre todos los chunks cargados
+            for (LevelChunk chunk : level.getChunkSource().chunkMap.getVisibleChunks()) {
                 for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
                     if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
                         recyclerEntity.tick();
                     }
                 }
-            });
+            }
         }
     }
 }
