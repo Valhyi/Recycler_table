@@ -9,9 +9,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
-import net.neoforged.neoforge.event.TickEvent;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 @Mod(RecyclerTable.MOD_ID)
 public class RecyclerTable {
@@ -26,6 +24,9 @@ public class RecyclerTable {
 
         // Registrar el evento para la pestaña creativa
         modEventBus.addListener(this::addCreative);
+        
+        // Registrar evento de tick del servidor
+        modEventBus.addListener(this::onServerTick);
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
@@ -37,18 +38,18 @@ public class RecyclerTable {
     /**
      * Event handler para ticks del servidor
      */
-    @EventBusSubscriber(modid = MOD_ID, bus = EventBusSubscriber.Bus.FORGE)
-    public static class ServerEvents {
-        @net.neoforged.neoforge.api.distmarker.OnlyIn(Dist.DEDICATED_SERVER)
-        public static void onServerTick(TickEvent.LevelTickEvent event) {
-            if (event.phase == TickEvent.Phase.END && !event.level.isClientSide()) {
-                // Iterar sobre todos los block entities de RecyclerBlockEntity
-                event.level.getBlockEntities().forEach(blockEntity -> {
-                    if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
-                        recyclerEntity.tick();
-                    }
-                });
-            }
+    private void onServerTick(ServerTickEvent.Post event) {
+        if (!event.getServer().isSameThread()) {
+            return;
+        }
+
+        // Procesar ticks en todos los mundos del servidor
+        for (var level : event.getServer().getAllLevels()) {
+            level.getBlockEntities().forEach(blockEntity -> {
+                if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
+                    recyclerEntity.tick();
+                }
+            });
         }
     }
 }
