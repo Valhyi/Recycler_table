@@ -11,6 +11,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 public class RecyclerMenu extends AbstractContainerMenu {
@@ -46,14 +47,24 @@ public class RecyclerMenu extends AbstractContainerMenu {
         }
 
         // 2. Zona Central -> Índices 9, 10 y 11
-        this.addSlot(new Slot(container, 9, 80, 17));        // Slot superior: Item en proceso
-        this.addSlot(new Slot(container, 10, 71, 35));       // Slot inferior izquierdo: Botella vacía
-        this.addSlot(new Slot(container, 11, 89, 35));       // Slot inferior derecho: Libros
+        // Slot 9: Item en proceso (solo lectura)
+        this.addSlot(new Slot(container, 9, 80, 17) {
+            @Override
+            public boolean mayPlace(ItemStack itemStack) {
+                return false; // No se puede colocar items
+            }
+        });
+
+        // Slot 10: Botella vacía (bloqueado para solo botellas vacías)
+        this.addSlot(new RestrictedSlot(container, 10, 71, 35, Items.GLASS_BOTTLE));
+
+        // Slot 11: Libro (bloqueado para solo libros)
+        this.addSlot(new RestrictedSlot(container, 11, 89, 35, Items.BOOK));
 
         // 3. Output Grid (3x3) - Derecha -> Índices 12 al 20
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                this.addSlot(new Slot(container, 12 + j + i * 3, 116 + j * 18, 17 + i * 18));
+                this.addSlot(new OutputSlot(container, 12 + j + i * 3, 116 + j * 18, 17 + i * 18));
             }
         }
 
@@ -84,5 +95,46 @@ public class RecyclerMenu extends AbstractContainerMenu {
     public void removed(Player player) {
         super.removed(player);
         this.container.stopOpen(player);
+    }
+
+    /**
+     * Slot personalizado para botellas vacías y libros
+     */
+    private static class RestrictedSlot extends Slot {
+        private final ItemStack restrictedItem;
+
+        public RestrictedSlot(Container container, int index, int x, int y, ItemStack restrictedItem) {
+            super(container, index, x, y);
+            this.restrictedItem = restrictedItem;
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack itemStack) {
+            return itemStack.is(this.restrictedItem.getItem());
+        }
+
+        @Override
+        public int getMaxStackSize() {
+            return 64;
+        }
+    }
+
+    /**
+     * Slot de output (solo lectura)
+     */
+    private static class OutputSlot extends Slot {
+        public OutputSlot(Container container, int index, int x, int y) {
+            super(container, index, x, y);
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack itemStack) {
+            return false; // No se puede colocar items en output
+        }
+
+        @Override
+        public void set(ItemStack itemStack) {
+            super.set(itemStack);
+        }
     }
 }
