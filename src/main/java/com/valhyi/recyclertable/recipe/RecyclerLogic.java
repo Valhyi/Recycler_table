@@ -2,11 +2,13 @@ package com.valhyi.recyclertable.recipe;
 
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class RecyclerLogic {
 
@@ -61,8 +63,9 @@ public class RecyclerLogic {
 
         List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
         
-        // Verificar si tiene encantamientos - Minecraft 1.20.6+ usa getAllEnchantments con RegistryAccess
-        boolean isEnchanted = !inputStack.getAllEnchantments().isEmpty();
+        // Verificar si tiene encantamientos - Minecraft 26.2 usa EnchantmentHelper.getEnchantments()
+        Map<Enchantment, Integer> enchantmentsMap = EnchantmentHelper.getEnchantments(inputStack);
+        boolean isEnchanted = !enchantmentsMap.isEmpty();
         boolean hasEmptyBottle = !emptyBottle.isEmpty();
         boolean hasBook = !book.isEmpty();
 
@@ -80,7 +83,7 @@ public class RecyclerLogic {
 
             // Crear libro con encantamientos (Cut & Paste de TODOS los encantamientos)
             ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
-            copyAllEnchantments(inputStack, enchantedBook);
+            copyAllEnchantments(inputStack, enchantedBook, enchantmentsMap);
             results.add(enchantedBook);
 
             // Crear botella de XP
@@ -98,13 +101,12 @@ public class RecyclerLogic {
      * Copia TODOS los encantamientos del item origen al libro (Cut & Paste completo)
      * Mantiene los niveles de encantamiento exactamente igual: Sharpness V -> Sharpness V
      */
-    private static void copyAllEnchantments(ItemStack source, ItemStack target) {
-        // Obtener todos los encantamientos del item fuente
-        var enchantments = source.getAllEnchantments();
-        
-        // Copiar cada encantamiento al libro
-        enchantments.forEach((enchantmentHolder, level) -> {
-            target.enchant(enchantmentHolder, level);
-        });
+    private static void copyAllEnchantments(ItemStack source, ItemStack target, Map<Enchantment, Integer> enchantmentsMap) {
+        // Iterar sobre el mapa de encantamientos
+        for (Map.Entry<Enchantment, Integer> entry : enchantmentsMap.entrySet()) {
+            Enchantment enchantment = entry.getKey();
+            int level = entry.getValue();
+            target.enchant(enchantment, level);
+        }
     }
 }

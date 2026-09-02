@@ -13,13 +13,15 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
-        this.imageWidth = 176;
-        this.imageHeight = 166;
-        this.inventoryLabelY = 10000; // Ocultar etiqueta de inventario
+        // En Minecraft 26.2, el tamaño debe configurarse ANTES de llamar al super()
+        // Si necesitas configurar después, usa este patrón
     }
 
     @Override
     protected void init() {
+        // Configurar tamaños aquí en init()
+        this.imageWidth = 176;
+        this.imageHeight = 166;
         super.init();
         // Posición centrada automática
         this.leftPos = (this.width - this.imageWidth) / 2;
@@ -27,9 +29,9 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     }
 
     @Override
-    public void renderBg(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        int x = (this.width - this.imageWidth) / 2;
-        int y = (this.height - this.imageHeight) / 2;
-        graphics.blit(BACKGROUND, x, y, 0, 0, this.imageWidth, this.imageHeight);
+    public void renderBg(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+        int x = this.leftPos;
+        int y = this.topPos;
+        guiGraphics.blit(BACKGROUND, x, y, 0, 0, this.imageWidth, this.imageHeight);
     }
 }

@@ -4,7 +4,9 @@ import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
 import com.valhyi.recyclertable.init.ModBlocks;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import com.valhyi.recyclertable.init.ModMenuTypes;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -36,7 +38,7 @@ public class RecyclerTable {
     }
 
     /**
-     * Event handler para ticks del servidor
+     * Event handler para ticks del servidor - Minecraft 26.2 NeoForge
      */
     private void onServerTick(ServerTickEvent.Post event) {
         if (!event.getServer().isSameThread()) {
@@ -44,13 +46,22 @@ public class RecyclerTable {
         }
 
         // Procesar ticks en todos los mundos del servidor
-        for (var level : event.getServer().getAllLevels()) {
-            // Iterar sobre las BlockEntities usando la API correcta de Minecraft 1.20.6+
-            level.blockEntityList.forEach(blockEntity -> {
-                if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
-                    recyclerEntity.tick();
+        for (ServerLevel level : event.getServer().getAllLevels()) {
+            // Iterar sobre chunks cargados y sus BlockEntities
+            try {
+                if (level.getChunkSource() != null && level.getChunkSource().chunkMap != null) {
+                    for (LevelChunk chunk : level.getChunkSource().chunkMap.getChunks()) {
+                        // Iterar sobre BlockEntities en el chunk
+                        for (var blockEntity : chunk.getBlockEntities().values()) {
+                            if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
+                                recyclerEntity.tick();
+                            }
+                        }
+                    }
                 }
-            });
+            } catch (Exception e) {
+                // Fallback silencioso en caso de error de acceso a chunks
+            }
         }
     }
 }
