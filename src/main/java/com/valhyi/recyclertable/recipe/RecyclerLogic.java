@@ -3,8 +3,8 @@ package com.valhyi.recyclertable.recipe;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.common.util.NeoForgeExtraApisConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,8 +63,8 @@ public class RecyclerLogic {
 
         List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
         
-        // Verificar si tiene encantamientos - Minecraft 26.2 usa EnchantmentHelper.getEnchantments()
-        Map<Enchantment, Integer> enchantmentsMap = EnchantmentHelper.getEnchantments(inputStack);
+        // Verificar si tiene encantamientos - Minecraft 26.2
+        Map<Enchantment, Integer> enchantmentsMap = inputStack.getEnchantsAtLevel(0);
         boolean isEnchanted = !enchantmentsMap.isEmpty();
         boolean hasEmptyBottle = !emptyBottle.isEmpty();
         boolean hasBook = !book.isEmpty();

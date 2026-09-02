@@ -13,7 +13,6 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
@@ -143,7 +142,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         }
 
         // Consumir recursos si fue encantado
-        if (!EnchantmentHelper.getEnchantments(itemInProcess).isEmpty()) {
+        if (!itemInProcess.getEnchantsAtLevel(0).isEmpty()) {
             if (!emptyBottle.isEmpty()) {
                 emptyBottle.shrink(1);
             }

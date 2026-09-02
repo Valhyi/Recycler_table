@@ -1,27 +1,24 @@
 package com.valhyi.recyclertable.gui;
 
 import com.valhyi.recyclertable.RecyclerTable;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 
 public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
-    private static final ResourceLocation BACKGROUND = ResourceLocation.fromNamespaceAndPath(RecyclerTable.MOD_ID, "textures/gui/recycler_gui.png");
+    private static final Identifier BACKGROUND = Identifier.of(RecyclerTable.MOD_ID, "textures/gui/recycler_gui.png");
 
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
-        super(menu, playerInventory, title);
-        // En Minecraft 26.2, el tamaño debe configurarse ANTES de llamar al super()
-        // Si necesitas configurar después, usa este patrón
+        super(menu, playerInventory, title, 176, 166);
+        this.inventoryLabelY = 10000; // Ocultar etiqueta de inventario
     }
 
     @Override
     protected void init() {
-        // Configurar tamaños aquí en init()
-        this.imageWidth = 176;
-        this.imageHeight = 166;
         super.init();
         // Posición centrada automática
         this.leftPos = (this.width - this.imageWidth) / 2;
@@ -29,9 +26,15 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     }
 
     @Override
-    public void renderBg(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+    public void extractBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
+        super.extractBackground(guiGraphics, mouseX, mouseY, partialTicks);
         int x = this.leftPos;
         int y = this.topPos;
-        guiGraphics.blit(BACKGROUND, x, y, 0, 0, this.imageWidth, this.imageHeight);
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, BACKGROUND, x, y, 0.0F, 0.0F, this.imageWidth, this.imageHeight, 256, 256);
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
+        super.extractRenderState(guiGraphics, mouseX, mouseY, partialTicks);
     }
 }

@@ -47,20 +47,17 @@ public class RecyclerTable {
 
         // Procesar ticks en todos los mundos del servidor
         for (ServerLevel level : event.getServer().getAllLevels()) {
-            // Iterar sobre chunks cargados y sus BlockEntities
             try {
-                if (level.getChunkSource() != null && level.getChunkSource().chunkMap != null) {
-                    for (LevelChunk chunk : level.getChunkSource().chunkMap.getChunks()) {
-                        // Iterar sobre BlockEntities en el chunk
-                        for (var blockEntity : chunk.getBlockEntities().values()) {
-                            if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
-                                recyclerEntity.tick();
-                            }
+                // Iterar sobre todos los block entities del nivel
+                if (level.getBlockEntities() != null) {
+                    for (var blockEntity : level.getBlockEntities()) {
+                        if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
+                            recyclerEntity.tick();
                         }
                     }
                 }
             } catch (Exception e) {
-                // Fallback silencioso en caso de error de acceso a chunks
+                // Fallback silencioso en caso de error
             }
         }
     }
