@@ -1,7 +1,9 @@
 package com.valhyi.recyclertable.recipe;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
@@ -60,7 +62,8 @@ public class RecyclerLogic {
 
         List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
         
-        boolean isEnchanted = inputStack.hasEnchantments();
+        // Verificar si tiene encantamientos usando EnchantmentHelper
+        boolean isEnchanted = !EnchantmentHelper.getEnchantments(inputStack).isEmpty();
         boolean hasEmptyBottle = !emptyBottle.isEmpty();
         boolean hasBook = !book.isEmpty();
 
@@ -97,10 +100,12 @@ public class RecyclerLogic {
      * Mantiene los niveles de encantamiento exactamente igual: Sharpness V -> Sharpness V
      */
     private static void copyAllEnchantments(ItemStack source, ItemStack target) {
-        if (source.hasEnchantments()) {
-            source.getAllEnchantments().forEach((enchantment, level) -> {
-                target.enchant(enchantment, level);
-            });
-        }
+        // Obtener todos los encantamientos del item fuente
+        var enchantments = EnchantmentHelper.getEnchantments(source);
+        
+        // Copiar cada encantamiento al libro
+        enchantments.forEach((enchantment, level) -> {
+            target.enchant(enchantment, level);
+        });
     }
 }
