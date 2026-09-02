@@ -58,7 +58,8 @@ public class RecyclerBlock extends Block implements EntityBlock {
         if (!level.isClientSide()) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof RecyclerBlockEntity recyclerBlockEntity) {
-                player.openMenu(recyclerBlockEntity, pos);
+                // Abrir el menú con los datos de posición
+                player.openMenu(recyclerBlockEntity, buf -> buf.writeBlockPos(pos));
             }
         }
         return InteractionResult.SUCCESS;
@@ -69,7 +70,10 @@ public class RecyclerBlock extends Block implements EntityBlock {
         if (!level.isClientSide()) {
             var menuProvider = state.getMenuProvider(level, pos);
             if (menuProvider != null) {
-                player.openMenu(menuProvider, pos);
+                // Abrir el menú con los datos de posición
+                if (menuProvider instanceof RecyclerBlockEntity recyclerBlockEntity) {
+                    player.openMenu(recyclerBlockEntity, buf -> buf.writeBlockPos(pos));
+                }
             }
         }
         return InteractionResult.SUCCESS;
