@@ -11,22 +11,23 @@ import java.util.List;
 
 public class RecyclerLogic {
 
-    private static final int MIN_DURABILITY_PERCENTAGE = 85;
-
     public static boolean canRecycle(ItemStack itemStack, Level level) {
         if (itemStack.isEmpty() || level.isClientSide()) {
             return false;
         }
 
-        // Verificar si el item tiene durabilidad y si está por encima del 85%
-        if (itemStack.getDamageValue() > 0) {
-            int maxDamage = itemStack.getMaxDamage();
-            int currentDamage = itemStack.getDamageValue();
-            int durabilityPercentage = ((maxDamage - currentDamage) * 100) / maxDamage;
-            return durabilityPercentage >= MIN_DURABILITY_PERCENTAGE;
+        // Un item puede reciclarse si:
+        // 1. Tiene encantamientos, O
+        // 2. Tiene una receta conocida
+        
+        ItemEnchantments enchantments = itemStack.get(DataComponents.ENCHANTMENTS);
+        boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
+        
+        if (isEnchanted) {
+            return true;
         }
 
-        // Si no tiene durabilidad pero tiene receta, es reciclable
+        // Si no tiene encantamientos, verificar si tiene receta
         return hasRecipe(itemStack, level);
     }
 
@@ -35,8 +36,9 @@ public class RecyclerLogic {
             return false;
         }
         
-        // TODO: Implementar búsqueda de receta en el servidor
-        return itemStack.getMaxDamage() == 0;
+        // Por ahora, consideramos que cualquier item con durabilidad tiene receta
+        // TODO: Implementar búsqueda real de receta en el servidor
+        return itemStack.getMaxDamage() > 0;
     }
 
     public static List<ItemStack> getRecipeIngredients(ItemStack inputStack, Level level) {
@@ -46,7 +48,8 @@ public class RecyclerLogic {
             return ingredients;
         }
 
-        // TODO: Implementar extracción de ingredientes de receta
+        // TODO: Implementar extracción real de ingredientes de receta
+        // Por ahora retorna lista vacía
         
         return ingredients;
     }
