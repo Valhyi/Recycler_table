@@ -104,7 +104,6 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
         // Colocar resultados en el grid de output (slots 12-20)
         boolean allResultsPlaced = true;
-        int currentSlot = 12;
         
         for (ItemStack result : results) {
             boolean placed = false;
