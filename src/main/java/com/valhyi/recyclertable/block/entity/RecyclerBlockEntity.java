@@ -29,7 +29,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     };
 
     private int processingTicks = 0;
-    private static final int PROCESSING_TIME = 3; // 3 ticks como especificaste
+    private static final int PROCESSING_TIME = 3;
 
     public RecyclerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.RECYCLER_BLOCK_ENTITY.get(), pos, state);
@@ -52,6 +52,11 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
     /**
      * Procesa un item del grid de entrada
+     * Slots 0-8: Input Grid
+     * Slot 9: Item en proceso (lectura)
+     * Slot 10: Botella vacía (restringido)
+     * Slot 11: Libro (restringido)
+     * Slots 12-20: Output Grid
      */
     public void tick() {
         if (this.level == null || this.level.isClientSide()) {
@@ -98,31 +103,45 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         java.util.List<ItemStack> results = RecyclerLogic.processRecycling(itemInProcess, emptyBottle, book, this.level);
 
         // Colocar resultados en el grid de output (slots 12-20)
-        int outputSlot = 12;
+        boolean allResultsPlaced = true;
+        int currentSlot = 12;
+        
         for (ItemStack result : results) {
-            if (outputSlot > 20) {
-                // Si el output está lleno, devolver item al input
-                container.setItem(9, itemInProcess);
-                return;
-            }
-
-            ItemStack existingItem = container.getItem(outputSlot);
-            if (existingItem.isEmpty()) {
-                container.setItem(outputSlot, result);
-            } else if (ItemStack.isSameItemSameComponents(existingItem, result) && existingItem.getCount() < existingItem.getMaxStackSize()) {
-                existingItem.grow(result.getCount());
-            } else {
-                outputSlot++;
-                if (outputSlot <= 20) {
-                    container.setItem(outputSlot, result);
+            boolean placed = false;
+            
+            // Intentar colocar en un slot vacío o stackeable
+            for (int slot = 12; slot <= 20; slot++) {
+                ItemStack existingItem = container.getItem(slot);
+                if (existingItem.isEmpty()) {
+                    container.setItem(slot, result.copy());
+                    placed = true;
+                    break;
+                } else if (ItemStack.isSameItemSameComponents(existingItem, result)) {
+                    int space = existingItem.getMaxStackSize() - existingItem.getCount();
+                    if (space > 0) {
+                        int transfer = Math.min(space, result.getCount());
+                        existingItem.grow(transfer);
+                        result.shrink(transfer);
+                        if (result.isEmpty()) {
+                            placed = true;
+                            break;
+                        }
+                    }
                 }
             }
-            outputSlot++;
+            
+            if (!placed) {
+                allResultsPlaced = false;
+                break;
+            }
         }
 
-        // Limpiar slots de proceso
-        container.setItem(9, ItemStack.EMPTY);
-        
+        // Si no se colocaron todos los resultados, devolver item al input
+        if (!allResultsPlaced) {
+            container.setItem(9, itemInProcess);
+            return;
+        }
+
         // Consumir recursos si fue encantado
         if (itemInProcess.hasEnchantments()) {
             if (!emptyBottle.isEmpty()) {
@@ -132,6 +151,9 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
                 book.shrink(1);
             }
         }
+
+        // Limpiar slot de proceso
+        container.setItem(9, ItemStack.EMPTY);
 
         this.setChanged();
         if (this.level != null) {
