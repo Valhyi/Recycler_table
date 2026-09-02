@@ -54,15 +54,18 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     /**
+     * Called by BlockEntityTicker every server tick
      * Procesa un item del grid de entrada
      * Slots 0-8: Input Grid
      * Slot 9: Item en proceso (lectura)
      * Slot 10: Botella vacía (restringido)
      * Slot 11: Libro (restringido)
      * Slots 12-20: Output Grid
-     * 
-     * Este método se ejecuta automáticamente cada tick gracias a BlockEntityTicker
      */
+    public static void serverTick(Level level, BlockPos pos, BlockState state, RecyclerBlockEntity entity) {
+        entity.tick(level, pos, state);
+    }
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (level == null || level.isClientSide()) {
             return;
