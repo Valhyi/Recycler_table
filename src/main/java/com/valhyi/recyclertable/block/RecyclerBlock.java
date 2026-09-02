@@ -2,10 +2,8 @@ package com.valhyi.recyclertable.block;
 
 import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -41,13 +39,9 @@ public class RecyclerBlock extends Block implements EntityBlock {
             return null;
         }
         
-        // Verificar que sea el tipo correcto
+        // Verificar que sea el tipo correcto y retornar el ticker
         return blockEntityType == com.valhyi.recyclertable.init.ModBlockEntities.RECYCLER_BLOCK_ENTITY.get() 
-            ? (lvl, pos, st, blockEntity) -> {
-                if (blockEntity instanceof RecyclerBlockEntity recycler) {
-                    recycler.serverTick(lvl, pos, st);
-                }
-            } 
+            ? RecyclerBlockEntity::serverTick 
             : null;
     }
 
@@ -65,7 +59,7 @@ public class RecyclerBlock extends Block implements EntityBlock {
     @Override
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
         if (!level.isClientSide()) {
-            MenuProvider menuProvider = state.getMenuProvider(level, pos);
+            var menuProvider = state.getMenuProvider(level, pos);
             if (menuProvider != null) {
                 player.openMenu(menuProvider, pos);
             }
