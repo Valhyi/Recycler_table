@@ -45,7 +45,8 @@ public class RecyclerTable {
 
         // Procesar ticks en todos los mundos del servidor
         for (var level : event.getServer().getAllLevels()) {
-            level.getBlockEntities().forEach(blockEntity -> {
+            // Iterar sobre las BlockEntities usando la API correcta de Minecraft 1.20.6+
+            level.blockEntityList.forEach(blockEntity -> {
                 if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
                     recyclerEntity.tick();
                 }

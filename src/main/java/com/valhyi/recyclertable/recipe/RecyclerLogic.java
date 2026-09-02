@@ -1,6 +1,5 @@
 package com.valhyi.recyclertable.recipe;
 
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -62,8 +61,8 @@ public class RecyclerLogic {
 
         List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
         
-        // Verificar si tiene encantamientos usando EnchantmentHelper
-        boolean isEnchanted = !EnchantmentHelper.getEnchantments(inputStack).isEmpty();
+        // Verificar si tiene encantamientos - Minecraft 1.20.6+ usa getAllEnchantments con RegistryAccess
+        boolean isEnchanted = !inputStack.getAllEnchantments().isEmpty();
         boolean hasEmptyBottle = !emptyBottle.isEmpty();
         boolean hasBook = !book.isEmpty();
 
@@ -101,11 +100,11 @@ public class RecyclerLogic {
      */
     private static void copyAllEnchantments(ItemStack source, ItemStack target) {
         // Obtener todos los encantamientos del item fuente
-        var enchantments = EnchantmentHelper.getEnchantments(source);
+        var enchantments = source.getAllEnchantments();
         
         // Copiar cada encantamiento al libro
-        enchantments.forEach((enchantment, level) -> {
-            target.enchant(enchantment, level);
+        enchantments.forEach((enchantmentHolder, level) -> {
+            target.enchant(enchantmentHolder, level);
         });
     }
 }
