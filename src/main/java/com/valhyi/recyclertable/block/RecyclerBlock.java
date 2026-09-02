@@ -23,36 +23,39 @@ public class RecyclerBlock extends Block implements EntityBlock {
         super(properties);
     }
 
+    @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new RecyclerBlockEntity(pos, state);
     }
 
     /**
-     * Registra el BlockEntityTicker para que Minecraft ejecute automáticamente
-     * el tick del RecyclerBlockEntity solo cuando está cargado
+     * Registra el BlockEntityTicker para ejecutar automáticamente
+     * el tick del RecyclerBlockEntity cada tick del servidor
      */
     @Nullable
     @Override
-    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-        // Solo ejecutamos en el lado del servidor
-        return level.isClientSide() ? null : createTickerHelper(type);
-    }
-
-    @Nullable
-    private static <T extends BlockEntity> BlockEntityTicker<T> createTickerHelper(BlockEntityType<T> type) {
-        return (lvl, pos, st, blockEntity) -> {
-            if (blockEntity instanceof RecyclerBlockEntity recycler) {
-                recycler.tick(lvl, pos, st);
-            }
-        };
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> blockEntityType) {
+        // Solo en servidor
+        if (level.isClientSide()) {
+            return null;
+        }
+        
+        // Verificar que sea el tipo correcto
+        return blockEntityType == com.valhyi.recyclertable.init.ModBlockEntities.RECYCLER_BLOCK_ENTITY.get() 
+            ? (lvl, pos, st, blockEntity) -> {
+                if (blockEntity instanceof RecyclerBlockEntity recycler) {
+                    recycler.serverTick(lvl, pos, st);
+                }
+            } 
+            : null;
     }
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide()) {
-            RecyclerBlockEntity recyclerBlockEntity = (RecyclerBlockEntity) level.getBlockEntity(pos);
-            if (recyclerBlockEntity != null) {
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof RecyclerBlockEntity recyclerBlockEntity) {
                 player.openMenu(recyclerBlockEntity, pos);
             }
         }
