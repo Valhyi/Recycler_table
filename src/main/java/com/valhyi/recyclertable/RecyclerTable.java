@@ -40,7 +40,7 @@ public class RecyclerTable {
 
     /**
      * Event handler para ticks del servidor - Minecraft 26.2 NeoForge
-     * Procesa el tick de tus BlockEntities
+     * Procesa el tick de tus BlockEntities usando la API correcta
      */
     private void onServerTick(ServerTickEvent.Post event) {
         if (!event.getServer().isSameThread()) {
@@ -49,14 +49,17 @@ public class RecyclerTable {
 
         // Procesar ticks en todos los mundos del servidor
         for (ServerLevel level : event.getServer().getAllLevels()) {
-            // Iterar sobre todos los chunks cargados
-            for (LevelChunk chunk : level.getChunkSource().chunkMap.getVisibleChunks()) {
-                for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
-                    if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
-                        recyclerEntity.tick();
+            // Iterar sobre todos los ChunkHolders visibles
+            level.getChunkSource().chunkMap.getVisibleChunks().forEach(chunkHolder -> {
+                // getLastAvailable() devuelve Optional<LevelChunk>
+                chunkHolder.getLastAvailable().ifPresent(chunk -> {
+                    for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
+                        if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
+                            recyclerEntity.tick();
+                        }
                     }
-                }
-            }
+                });
+            });
         }
     }
 }
