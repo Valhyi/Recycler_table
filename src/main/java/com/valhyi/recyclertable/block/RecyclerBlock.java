@@ -1,7 +1,9 @@
 package com.valhyi.recyclertable.block;
 
+import com.valhyi.recyclertable.block.entity.HopperIntegration;
 import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -34,31 +36,39 @@ public class RecyclerBlock extends Block implements EntityBlock {
         return blockEntity instanceof MenuProvider ? (MenuProvider) blockEntity : null;
     }
 
-@Override
-protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-    if (!level.isClientSide()) {
-        BlockEntity blockEntity = level.getBlockEntity(pos);
-        System.out.println("LOG RECYCLER: Click detectado. BlockEntity encontrado = " + blockEntity);
-        
-        if (blockEntity instanceof RecyclerBlockEntity recyclerBlockEntity) {
-            System.out.println("LOG RECYCLER: Entidad correcta. Intentando abrir menú...");
-            player.openMenu(recyclerBlockEntity, pos);
-        } else {
-            System.out.println("LOG RECYCLER: FALLO - El BlockEntity es nulo o no es RecyclerBlockEntity.");
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+        if (!level.isClientSide()) {
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            
+            if (blockEntity instanceof RecyclerBlockEntity recyclerBlockEntity) {
+                player.openMenu(recyclerBlockEntity, pos);
+            }
         }
+        return InteractionResult.SUCCESS;
     }
-    return InteractionResult.SUCCESS;
-}
 
     @Override
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
         if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
             MenuProvider menuProvider = this.getMenuProvider(state, level, pos);
             if (menuProvider != null) {
-                // Enviamos la posición también al interactuar con un ítem en la mano
                 serverPlayer.openMenu(menuProvider, pos);
             }
         }
         return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * Soporte para tolvas (Hoppers)
+     * Permite insertar items en el input grid (slots 0-8)
+     */
+    public boolean hasAnalogOutputSignal(BlockState state) {
+        return false;
+    }
+
+    @Nullable
+    public static BlockEntity getBlockEntityForHopper(Level level, BlockPos pos) {
+        return level.getBlockEntity(pos);
     }
 }
