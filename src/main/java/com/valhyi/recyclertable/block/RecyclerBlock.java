@@ -1,6 +1,7 @@
 package com.valhyi.recyclertable.block;
 
 import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
+import com.valhyi.recyclertable.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -39,10 +40,17 @@ public class RecyclerBlock extends Block implements EntityBlock {
             return null;
         }
         
-        // Verificar que sea el tipo correcto y retornar el ticker
-        return blockEntityType == com.valhyi.recyclertable.init.ModBlockEntities.RECYCLER_BLOCK_ENTITY.get() 
-            ? RecyclerBlockEntity::serverTick 
-            : null;
+        // Verificar que sea el tipo correcto
+        if (blockEntityType != ModBlockEntities.RECYCLER_BLOCK_ENTITY.get()) {
+            return null;
+        }
+        
+        // Cast seguro y retorno del ticker
+        return (lvl, pos, st, entity) -> {
+            if (entity instanceof RecyclerBlockEntity recycler) {
+                RecyclerBlockEntity.serverTick(lvl, pos, st, recycler);
+            }
+        };
     }
 
     @Override
