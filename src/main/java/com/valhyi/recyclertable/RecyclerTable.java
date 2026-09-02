@@ -6,6 +6,7 @@ import com.valhyi.recyclertable.init.ModBlockEntities;
 import com.valhyi.recyclertable.init.ModMenuTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -38,6 +39,7 @@ public class RecyclerTable {
 
     /**
      * Event handler para ticks del servidor - Minecraft 26.2 NeoForge
+     * Itera sobre todos los BlockEntities cargados en todos los mundos
      */
     private void onServerTick(ServerTickEvent.Post event) {
         if (!event.getServer().isSameThread()) {
@@ -46,8 +48,9 @@ public class RecyclerTable {
 
         // Procesar ticks en todos los mundos del servidor
         for (ServerLevel level : event.getServer().getAllLevels()) {
-            // Iterar sobre todos los BlockEntities sin usar chunks directamente
-            for (var blockEntity : level.tickableBlockEntities) {
+            // Iterar sobre todos los BlockEntities usando la API correcta de Minecraft 26.2
+            // Este método proporciona acceso a todos los block entities activos
+            for (BlockEntity blockEntity : level.blockEntityList) {
                 if (blockEntity instanceof RecyclerBlockEntity recyclerEntity) {
                     recyclerEntity.tick();
                 }

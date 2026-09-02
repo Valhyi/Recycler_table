@@ -1,5 +1,6 @@
 package com.valhyi.recyclertable.recipe;
 
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.ItemEnchantments;
@@ -61,9 +62,9 @@ public class RecyclerLogic {
 
         List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
         
-        // Verificar si tiene encantamientos - Minecraft 26.2
-        ItemEnchantments enchantments = inputStack.getEnchantments();
-        boolean isEnchanted = !enchantments.isEmpty();
+        // Obtener encantamientos - Minecraft 26.2
+        ItemEnchantments enchantments = inputStack.get(DataComponents.ENCHANTMENTS);
+        boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
         boolean hasEmptyBottle = !emptyBottle.isEmpty();
         boolean hasBook = !book.isEmpty();
 
@@ -81,7 +82,7 @@ public class RecyclerLogic {
 
             // Crear libro con encantamientos (Cut & Paste de TODOS los encantamientos)
             ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
-            copyAllEnchantments(inputStack, enchantedBook, enchantments);
+            copyAllEnchantments(enchantedBook, enchantments);
             results.add(enchantedBook);
 
             // Crear botella de XP
@@ -96,14 +97,15 @@ public class RecyclerLogic {
     }
 
     /**
-     * Copia TODOS los encantamientos del item origen al libro (Cut & Paste completo)
+     * Copia TODOS los encantamientos al libro (Cut & Paste completo)
      * Mantiene los niveles de encantamiento exactamente igual: Sharpness V -> Sharpness V
      */
-    private static void copyAllEnchantments(ItemStack source, ItemStack target, ItemEnchantments sourceEnchantments) {
-        // Crear una copia mutable de los encantamientos
-        ItemEnchantments.Mutable mutableEnchantments = new ItemEnchantments.Mutable(sourceEnchantments);
-        
-        // Aplicar los encantamientos al libro
-        target.set(net.minecraft.core.component.DataComponents.ENCHANTMENTS, mutableEnchantments.toImmutable());
+    private static void copyAllEnchantments(ItemStack target, ItemEnchantments sourceEnchantments) {
+        if (sourceEnchantments != null && !sourceEnchantments.isEmpty()) {
+            // Crear una copia mutable de los encantamientos
+            ItemEnchantments.Mutable mutableEnchantments = new ItemEnchantments.Mutable(sourceEnchantments);
+            // Aplicar los encantamientos al libro
+            target.set(DataComponents.ENCHANTMENTS, mutableEnchantments.toImmutable());
+        }
     }
 }

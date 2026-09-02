@@ -5,6 +5,7 @@ import com.valhyi.recyclertable.init.ModBlockEntities;
 import com.valhyi.recyclertable.recipe.RecyclerLogic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.MenuProvider;
@@ -13,6 +14,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ItemEnchantments;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
@@ -142,7 +144,8 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         }
 
         // Consumir recursos si fue encantado
-        if (!itemInProcess.getEnchantments().isEmpty()) {
+        ItemEnchantments enchantments = itemInProcess.get(DataComponents.ENCHANTMENTS);
+        if (enchantments != null && !enchantments.isEmpty()) {
             if (!emptyBottle.isEmpty()) {
                 emptyBottle.shrink(1);
             }
