@@ -142,7 +142,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         }
 
         // Consumir recursos si fue encantado
-        if (!itemInProcess.getEnchantments().copyTag().getAllEnchantments().isEmpty()) {
+        if (!itemInProcess.getEnchantments().isEmpty()) {
             if (!emptyBottle.isEmpty()) {
                 emptyBottle.shrink(1);
             }

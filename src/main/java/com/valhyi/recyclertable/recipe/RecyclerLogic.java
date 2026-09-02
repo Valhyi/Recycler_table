@@ -2,12 +2,11 @@ package com.valhyi.recyclertable.recipe;
 
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.component.ItemEnchantments;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class RecyclerLogic {
 
@@ -63,9 +62,8 @@ public class RecyclerLogic {
         List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
         
         // Verificar si tiene encantamientos - Minecraft 26.2
-        // ItemStack#getEnchantments() retorna una vista read-only del mapa de encantamientos
-        Map<Enchantment, Integer> enchantmentsMap = inputStack.getEnchantments().copyTag().getAllEnchantments();
-        boolean isEnchanted = !enchantmentsMap.isEmpty();
+        ItemEnchantments enchantments = inputStack.getEnchantments();
+        boolean isEnchanted = !enchantments.isEmpty();
         boolean hasEmptyBottle = !emptyBottle.isEmpty();
         boolean hasBook = !book.isEmpty();
 
@@ -83,7 +81,7 @@ public class RecyclerLogic {
 
             // Crear libro con encantamientos (Cut & Paste de TODOS los encantamientos)
             ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
-            copyAllEnchantments(inputStack, enchantedBook);
+            copyAllEnchantments(inputStack, enchantedBook, enchantments);
             results.add(enchantedBook);
 
             // Crear botella de XP
@@ -101,14 +99,11 @@ public class RecyclerLogic {
      * Copia TODOS los encantamientos del item origen al libro (Cut & Paste completo)
      * Mantiene los niveles de encantamiento exactamente igual: Sharpness V -> Sharpness V
      */
-    private static void copyAllEnchantments(ItemStack source, ItemStack target) {
-        Map<Enchantment, Integer> enchantmentsMap = source.getEnchantments().copyTag().getAllEnchantments();
+    private static void copyAllEnchantments(ItemStack source, ItemStack target, ItemEnchantments sourceEnchantments) {
+        // Crear una copia mutable de los encantamientos
+        ItemEnchantments.Mutable mutableEnchantments = new ItemEnchantments.Mutable(sourceEnchantments);
         
-        // Iterar sobre el mapa de encantamientos
-        for (Map.Entry<Enchantment, Integer> entry : enchantmentsMap.entrySet()) {
-            Enchantment enchantment = entry.getKey();
-            int level = entry.getValue();
-            target.enchant(enchantment, level);
-        }
+        // Aplicar los encantamientos al libro
+        target.set(net.minecraft.core.component.DataComponents.ENCHANTMENTS, mutableEnchantments.toImmutable());
     }
 }
