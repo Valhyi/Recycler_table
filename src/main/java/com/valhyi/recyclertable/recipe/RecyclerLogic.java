@@ -2,12 +2,7 @@ package com.valhyi.recyclertable.recipe;
 
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.storage.loot.LootContext;
-import net.minecraft.world.level.storage.loot.LootParams;
-import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
-import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +34,6 @@ public class RecyclerLogic {
         }
         
         // TODO: Implementar búsqueda de receta en el servidor
-        // Por ahora retornamos true si el item no tiene durabilidad
         return itemStack.getMaxDamage() == 0;
     }
 
@@ -51,7 +45,6 @@ public class RecyclerLogic {
         }
 
         // TODO: Implementar extracción de ingredientes de receta
-        // Esta será la parte principal de la lógica
         
         return ingredients;
     }
@@ -60,6 +53,7 @@ public class RecyclerLogic {
         List<ItemStack> results = new ArrayList<>();
 
         if (!canRecycle(inputStack, level)) {
+            // Si no puede reciclarse, enviar al output sin cambios
             results.add(inputStack.copy());
             return results;
         }
@@ -72,19 +66,19 @@ public class RecyclerLogic {
 
         // Si está encantado
         if (isEnchanted) {
-            // Validar que tenga los recursos necesarios
+            // Validar que tenga los recursos necesarios (botella y libro)
             if (!hasEmptyBottle || !hasBook) {
-                // No puede procesar, devolver item original
+                // No puede procesar sin recursos, enviar item original al output
                 results.add(inputStack.copy());
                 return results;
             }
 
-            // Devolver ingredientes
+            // Devolver ingredientes del item
             results.addAll(ingredients);
 
-            // Crear libro con encantamientos (Cut & Paste de encantamientos)
+            // Crear libro con encantamientos (Cut & Paste de TODOS los encantamientos)
             ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
-            copyEnchantments(inputStack, enchantedBook);
+            copyAllEnchantments(inputStack, enchantedBook);
             results.add(enchantedBook);
 
             // Crear botella de XP
@@ -99,9 +93,10 @@ public class RecyclerLogic {
     }
 
     /**
-     * Copia TODOS los encantamientos del item origen al libro (Cut & Paste)
+     * Copia TODOS los encantamientos del item origen al libro (Cut & Paste completo)
+     * Mantiene los niveles de encantamiento exactamente igual: Sharpness V -> Sharpness V
      */
-    private static void copyEnchantments(ItemStack source, ItemStack target) {
+    private static void copyAllEnchantments(ItemStack source, ItemStack target) {
         if (source.hasEnchantments()) {
             source.getAllEnchantments().forEach((enchantment, level) -> {
                 target.enchant(enchantment, level);
