@@ -50,11 +50,15 @@ public class RecyclerLogic {
             
             // Verificar que sea una receta de crafteo (Shaped o Shapeless)
             if (recipe instanceof ShapedRecipe shapedRecipe) {
-                if (shapedRecipe.result.item() == itemStack.getItem()) {
+                // Crear una instancia del resultado para comparar
+                ItemStack result = shapedRecipe.result.create();
+                if (result.is(itemStack.getItem())) {
                     return true;
                 }
             } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                if (shapelessRecipe.result.item() == itemStack.getItem()) {
+                // Crear una instancia del resultado para comparar
+                ItemStack result = shapelessRecipe.result.create();
+                if (result.is(itemStack.getItem())) {
                     return true;
                 }
             }
@@ -76,16 +80,18 @@ public class RecyclerLogic {
         for (RecipeHolder<?> recipeHolder : recipeManager.getRecipes()) {
             var recipe = recipeHolder.value();
             
-            // Verificar que sea una receta válida (Shaped o Shapeless)
+            // Verificar que sea una receta válida (Shaped)
             if (recipe instanceof ShapedRecipe shapedRecipe) {
-                if (shapedRecipe.result.item() == inputStack.getItem()) {
-                    // Obtener ingredientes de la receta
+                ItemStack result = shapedRecipe.result.create();
+                if (result.is(inputStack.getItem())) {
+                    // Obtener ingredientes de la receta (List<Optional<Ingredient>>)
                     for (Optional<Ingredient> optionalIngredient : shapedRecipe.getIngredients()) {
                         if (optionalIngredient.isPresent()) {
                             Ingredient ingredient = optionalIngredient.get();
-                            var items = ingredient.getItems();
-                            if (items.length > 0) {
-                                ItemStack copy = items[0].copy();
+                            // Usar ingredient.items() para obtener los items
+                            var itemStream = ingredient.items();
+                            if (itemStream.findFirst().isPresent()) {
+                                ItemStack copy = itemStream.findFirst().get().value().getDefaultInstance().copy();
                                 copy.setCount(1);
                                 ingredients.add(copy);
                             }
@@ -93,13 +99,16 @@ public class RecyclerLogic {
                     }
                     return ingredients;
                 }
-            } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                if (shapelessRecipe.result.item() == inputStack.getItem()) {
-                    // Obtener ingredientes de la receta
-                    for (Ingredient ingredient : shapelessRecipe.ingredients) {
-                        var items = ingredient.getItems();
-                        if (items.length > 0) {
-                            ItemStack copy = items[0].copy();
+            } 
+            // Verificar que sea una receta válida (Shapeless)
+            else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
+                ItemStack result = shapelessRecipe.result.create();
+                if (result.is(inputStack.getItem())) {
+                    // Obtener ingredientes de la receta usando getIngredients()
+                    for (Ingredient ingredient : shapelessRecipe.getIngredients()) {
+                        var itemStream = ingredient.items();
+                        if (itemStream.findFirst().isPresent()) {
+                            ItemStack copy = itemStream.findFirst().get().value().getDefaultInstance().copy();
                             copy.setCount(1);
                             ingredients.add(copy);
                         }
