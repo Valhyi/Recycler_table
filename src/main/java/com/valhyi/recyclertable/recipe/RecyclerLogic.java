@@ -58,6 +58,68 @@ public class RecyclerLogic {
         return false;
     }
 
+    /**
+     * Obtiene la receta específica para un item usando reflexión
+     */
+    private static RecipeHolder<?> findRecipeForItem(ItemStack itemStack, Level level) {
+        if (level.isClientSide() || level.getServer() == null) {
+            return null;
+        }
+        
+        var recipeManager = level.getServer().getRecipeManager();
+        
+        // Buscar receta que produce este item
+        for (RecipeHolder<?> recipeHolder : recipeManager.getRecipes()) {
+            var recipe = recipeHolder.value();
+            
+            // Solo buscar en recetas de crafteo
+            if (!(recipe instanceof ShapedRecipe || recipe instanceof ShapelessRecipe)) {
+                continue;
+            }
+            
+            // Comparar usando reflexión para evitar acceso a fields privados
+            try {
+                if (recipe instanceof ShapedRecipe shapedRecipe) {
+                    // Acceder a result field privado
+                    Field resultField = ShapedRecipe.class.getDeclaredField("result");
+                    resultField.setAccessible(true);
+                    Object resultObj = resultField.get(shapedRecipe);
+                    
+                    if (resultObj != null) {
+                        // resultObj es un RecipeOutput, obtener item
+                        Field itemField = resultObj.getClass().getDeclaredField("item");
+                        itemField.setAccessible(true);
+                        Object itemObj = itemField.get(resultObj);
+                        
+                        if (itemObj != null && itemObj == itemStack.getItem()) {
+                            return recipeHolder;
+                        }
+                    }
+                } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
+                    // Acceder a result field privado
+                    Field resultField = ShapelessRecipe.class.getDeclaredField("result");
+                    resultField.setAccessible(true);
+                    Object resultObj = resultField.get(shapelessRecipe);
+                    
+                    if (resultObj != null) {
+                        // resultObj es un RecipeOutput, obtener item
+                        Field itemField = resultObj.getClass().getDeclaredField("item");
+                        itemField.setAccessible(true);
+                        Object itemObj = itemField.get(resultObj);
+                        
+                        if (itemObj != null && itemObj == itemStack.getItem()) {
+                            return recipeHolder;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // Ignorar si falla la reflexión
+            }
+        }
+        
+        return null;
+    }
+
     public static List<ItemStack> getRecipeIngredients(ItemStack inputStack, Level level) {
         List<ItemStack> ingredients = new ArrayList<>();
 
@@ -65,49 +127,50 @@ public class RecyclerLogic {
             return ingredients;
         }
 
-        var recipeManager = level.getServer().getRecipeManager();
+        // Encontrar la receta específica para este item
+        RecipeHolder<?> recipeHolder = findRecipeForItem(inputStack, level);
+        if (recipeHolder == null) {
+            return ingredients;
+        }
         
-        // Buscar la receta para este item
-        for (RecipeHolder<?> recipeHolder : recipeManager.getRecipes()) {
-            var recipe = recipeHolder.value();
-            
-            // Verificar que sea una receta válida (Shaped)
-            if (recipe instanceof ShapedRecipe shapedRecipe) {
-                // Obtener ingredientes de la receta
-                for (Optional<Ingredient> optionalIngredient : shapedRecipe.getIngredients()) {
-                    if (optionalIngredient.isPresent()) {
-                        Ingredient ingredient = optionalIngredient.get();
-                        var firstItem = ingredient.items().findFirst();
-                        if (firstItem.isPresent()) {
-                            ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
-                            copy.setCount(1);
-                            ingredients.add(copy);
-                        }
+        var recipe = recipeHolder.value();
+        
+        // Verificar que sea una receta válida (Shaped)
+        if (recipe instanceof ShapedRecipe shapedRecipe) {
+            // Obtener ingredientes de la receta
+            for (Optional<Ingredient> optionalIngredient : shapedRecipe.getIngredients()) {
+                if (optionalIngredient.isPresent()) {
+                    Ingredient ingredient = optionalIngredient.get();
+                    var firstItem = ingredient.items().findFirst();
+                    if (firstItem.isPresent()) {
+                        ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
+                        copy.setCount(1);
+                        ingredients.add(copy);
+                    }
+                }
+            }
+            return ingredients;
+        } 
+        // Verificar que sea una receta válida (Shapeless)
+        else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
+            // Obtener ingredientes usando reflexión para acceder al field privado
+            try {
+                Field ingredientsField = ShapelessRecipe.class.getDeclaredField("ingredients");
+                ingredientsField.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                List<Ingredient> ingredientsList = (List<Ingredient>) ingredientsField.get(shapelessRecipe);
+                
+                for (Ingredient ingredient : ingredientsList) {
+                    var firstItem = ingredient.items().findFirst();
+                    if (firstItem.isPresent()) {
+                        ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
+                        copy.setCount(1);
+                        ingredients.add(copy);
                     }
                 }
                 return ingredients;
-            } 
-            // Verificar que sea una receta válida (Shapeless)
-            else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                // Obtener ingredientes usando reflexión para acceder al field privado
-                try {
-                    Field ingredientsField = ShapelessRecipe.class.getDeclaredField("ingredients");
-                    ingredientsField.setAccessible(true);
-                    @SuppressWarnings("unchecked")
-                    List<Ingredient> ingredientsList = (List<Ingredient>) ingredientsField.get(shapelessRecipe);
-                    
-                    for (Ingredient ingredient : ingredientsList) {
-                        var firstItem = ingredient.items().findFirst();
-                        if (firstItem.isPresent()) {
-                            ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
-                            copy.setCount(1);
-                            ingredients.add(copy);
-                        }
-                    }
-                    return ingredients;
-                } catch (Exception e) {
-                    // Si falla la reflexión, ignorar
-                }
+            } catch (Exception e) {
+                // Si falla la reflexión, retornar lista vacía
             }
         }
         
