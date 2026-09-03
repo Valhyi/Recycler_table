@@ -1,9 +1,9 @@
 package com.valhyi.recyclertable.recipe;
 
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
@@ -44,10 +44,14 @@ public class RecyclerLogic {
         var recipeManager = level.getServer().getRecipeManager();
         
         // Buscar receta de crafteo para este item
-        for (RecipeHolder<?> recipe : recipeManager.getRecipes()) {
-            if (recipe.value().getResultItem().is(itemStack.getItem())) {
-                // Verificar que sea una receta válida (Shaped o Shapeless)
-                if (recipe.value() instanceof ShapedRecipe || recipe.value() instanceof ShapelessRecipe) {
+        for (RecipeHolder<?> recipeHolder : recipeManager.getRecipes()) {
+            var recipe = recipeHolder.value();
+            
+            // Verificar que sea una receta de crafteo (Shaped o Shapeless)
+            if (recipe instanceof ShapedRecipe || recipe instanceof ShapelessRecipe) {
+                // Obtener el resultado de la receta
+                ItemStack result = recipe.getResult(CraftingInput.empty());
+                if (result.is(itemStack.getItem())) {
                     return true;
                 }
             }
@@ -66,27 +70,37 @@ public class RecyclerLogic {
         var recipeManager = level.getServer().getRecipeManager();
         
         // Buscar la receta para este item
-        for (RecipeHolder<?> recipe : recipeManager.getRecipes()) {
-            if (recipe.value().getResultItem().is(inputStack.getItem())) {
-                // Si es una receta válida (Shaped o Shapeless)
-                if (recipe.value() instanceof ShapedRecipe shapedRecipe) {
+        for (RecipeHolder<?> recipeHolder : recipeManager.getRecipes()) {
+            var recipe = recipeHolder.value();
+            
+            // Verificar que sea una receta válida (Shaped o Shapeless)
+            if (recipe instanceof ShapedRecipe shapedRecipe) {
+                ItemStack result = recipe.getResult(CraftingInput.empty());
+                if (result.is(inputStack.getItem())) {
                     // Obtener ingredientes de la receta
                     for (var ingredient : shapedRecipe.getIngredients()) {
                         ItemStack[] items = ingredient.getItems();
                         if (items.length > 0) {
-                            ingredients.add(items[0].copy());
+                            ItemStack copy = items[0].copy();
+                            copy.setCount(1);
+                            ingredients.add(copy);
                         }
                     }
-                    break;
-                } else if (recipe.value() instanceof ShapelessRecipe shapelessRecipe) {
+                    return ingredients;
+                }
+            } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
+                ItemStack result = recipe.getResult(CraftingInput.empty());
+                if (result.is(inputStack.getItem())) {
                     // Obtener ingredientes de la receta
                     for (var ingredient : shapelessRecipe.getIngredients()) {
                         ItemStack[] items = ingredient.getItems();
                         if (items.length > 0) {
-                            ingredients.add(items[0].copy());
+                            ItemStack copy = items[0].copy();
+                            copy.setCount(1);
+                            ingredients.add(copy);
                         }
                     }
-                    break;
+                    return ingredients;
                 }
             }
         }
