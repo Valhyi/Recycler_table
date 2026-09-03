@@ -50,16 +50,24 @@ public class RecyclerLogic {
             
             // Verificar que sea una receta de crafteo (Shaped o Shapeless)
             if (recipe instanceof ShapedRecipe shapedRecipe) {
-                // Crear una instancia del resultado para comparar
-                ItemStack result = shapedRecipe.result.create();
-                if (result.is(itemStack.getItem())) {
-                    return true;
+                // Comparar directamente con el item
+                try {
+                    ItemStack result = shapedRecipe.result.create();
+                    if (result.is(itemStack.getItem())) {
+                        return true;
+                    }
+                } catch (Exception e) {
+                    // Si no puede acceder a result, intentar otra forma
                 }
             } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                // Crear una instancia del resultado para comparar
-                ItemStack result = shapelessRecipe.result.create();
-                if (result.is(itemStack.getItem())) {
-                    return true;
+                // Comparar directamente con el item
+                try {
+                    ItemStack result = shapelessRecipe.result.create();
+                    if (result.is(itemStack.getItem())) {
+                        return true;
+                    }
+                } catch (Exception e) {
+                    // Si no puede acceder a result, intentar otra forma
                 }
             }
         }
@@ -82,38 +90,46 @@ public class RecyclerLogic {
             
             // Verificar que sea una receta válida (Shaped)
             if (recipe instanceof ShapedRecipe shapedRecipe) {
-                ItemStack result = shapedRecipe.result.create();
-                if (result.is(inputStack.getItem())) {
-                    // Obtener ingredientes de la receta (List<Optional<Ingredient>>)
-                    for (Optional<Ingredient> optionalIngredient : shapedRecipe.getIngredients()) {
-                        if (optionalIngredient.isPresent()) {
-                            Ingredient ingredient = optionalIngredient.get();
-                            // Usar ingredient.items() para obtener los items
-                            var itemStream = ingredient.items();
-                            if (itemStream.findFirst().isPresent()) {
-                                ItemStack copy = itemStream.findFirst().get().value().getDefaultInstance().copy();
-                                copy.setCount(1);
-                                ingredients.add(copy);
+                try {
+                    ItemStack result = shapedRecipe.result.create();
+                    if (result.is(inputStack.getItem())) {
+                        // Obtener ingredientes de la receta (List<Optional<Ingredient>>)
+                        for (Optional<Ingredient> optionalIngredient : shapedRecipe.getIngredients()) {
+                            if (optionalIngredient.isPresent()) {
+                                Ingredient ingredient = optionalIngredient.get();
+                                // Usar ingredient.items() para obtener los items
+                                var firstItem = ingredient.items().findFirst();
+                                if (firstItem.isPresent()) {
+                                    ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
+                                    copy.setCount(1);
+                                    ingredients.add(copy);
+                                }
                             }
                         }
+                        return ingredients;
                     }
-                    return ingredients;
+                } catch (Exception e) {
+                    // Ignorar si no puede acceder
                 }
             } 
             // Verificar que sea una receta válida (Shapeless)
             else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                ItemStack result = shapelessRecipe.result.create();
-                if (result.is(inputStack.getItem())) {
-                    // Obtener ingredientes de la receta usando getIngredients()
-                    for (Ingredient ingredient : shapelessRecipe.getIngredients()) {
-                        var itemStream = ingredient.items();
-                        if (itemStream.findFirst().isPresent()) {
-                            ItemStack copy = itemStream.findFirst().get().value().getDefaultInstance().copy();
-                            copy.setCount(1);
-                            ingredients.add(copy);
+                try {
+                    ItemStack result = shapelessRecipe.result.create();
+                    if (result.is(inputStack.getItem())) {
+                        // Obtener ingredientes usando acceso directo a ingredients field
+                        for (Ingredient ingredient : shapelessRecipe.ingredients) {
+                            var firstItem = ingredient.items().findFirst();
+                            if (firstItem.isPresent()) {
+                                ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
+                                copy.setCount(1);
+                                ingredients.add(copy);
+                            }
                         }
+                        return ingredients;
                     }
-                    return ingredients;
+                } catch (Exception e) {
+                    // Ignorar si no puede acceder
                 }
             }
         }
