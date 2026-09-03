@@ -5,6 +5,7 @@ import com.valhyi.recyclertable.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -57,9 +58,8 @@ public class RecyclerBlock extends Block implements EntityBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide()) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (blockEntity instanceof RecyclerBlockEntity recyclerBlockEntity) {
-                // Abrir el menú con los datos de posición
-                player.openMenu(recyclerBlockEntity, buf -> buf.writeBlockPos(pos));
+            if (blockEntity instanceof MenuProvider menuProvider) {
+                player.openMenu(menuProvider, buf -> buf.writeBlockPos(pos));
             }
         }
         return InteractionResult.SUCCESS;
@@ -68,12 +68,9 @@ public class RecyclerBlock extends Block implements EntityBlock {
     @Override
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
         if (!level.isClientSide()) {
-            var menuProvider = state.getMenuProvider(level, pos);
-            if (menuProvider != null) {
-                // Abrir el menú con los datos de posición
-                if (menuProvider instanceof RecyclerBlockEntity recyclerBlockEntity) {
-                    player.openMenu(recyclerBlockEntity, buf -> buf.writeBlockPos(pos));
-                }
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof MenuProvider menuProvider) {
+                player.openMenu(menuProvider, buf -> buf.writeBlockPos(pos));
             }
         }
         return InteractionResult.SUCCESS;
