@@ -1,6 +1,5 @@
 package com.valhyi.recyclertable.block.entity;
 
-import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.items.ItemStackHandler;
@@ -49,38 +48,38 @@ public class CapabilityHandler {
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
             // Solo permitir inserción en input grid (slots 0-8)
-            if (slot < 0 || slot > 20 || stack.isEmpty()) {
+            if (stack.isEmpty()) {
                 return stack;
             }
             
-            // Si es entrada (top/sides), permitir solo en slots 0-8
-            if (slot <= 8) {
-                ItemStack remaining = stack.copy();
+            // Intentar insertar en slots 0-8
+            ItemStack remaining = stack.copy();
+            
+            // Buscar slot vacío o stackeable
+            for (int i = 0; i < 9; i++) {
+                ItemStack existingItem = recycler.getContainer().getItem(i);
                 
-                // Buscar slot vacío o stackeable
-                for (int i = 0; i < 9; i++) {
-                    ItemStack existingItem = recycler.getContainer().getItem(i);
-                    
-                    if (existingItem.isEmpty()) {
+                if (existingItem.isEmpty()) {
+                    if (!simulate) {
                         recycler.getContainer().setItem(i, remaining.copy());
-                        return ItemStack.EMPTY;
-                    } else if (ItemStack.isSameItemSameComponents(existingItem, remaining)) {
-                        int space = existingItem.getMaxStackSize() - existingItem.getCount();
-                        if (space > 0) {
-                            int transfer = Math.min(space, remaining.getCount());
+                    }
+                    return ItemStack.EMPTY;
+                } else if (ItemStack.isSameItemSameComponents(existingItem, remaining)) {
+                    int space = existingItem.getMaxStackSize() - existingItem.getCount();
+                    if (space > 0) {
+                        int transfer = Math.min(space, remaining.getCount());
+                        if (!simulate) {
                             existingItem.grow(transfer);
-                            remaining.shrink(transfer);
-                            
-                            if (remaining.isEmpty()) {
-                                return ItemStack.EMPTY;
-                            }
+                        }
+                        remaining.shrink(transfer);
+                        
+                        if (remaining.isEmpty()) {
+                            return ItemStack.EMPTY;
                         }
                     }
                 }
-                return remaining;
             }
-            
-            return stack;
+            return remaining;
         }
         
         @Override
@@ -95,10 +94,15 @@ public class CapabilityHandler {
                 return ItemStack.EMPTY;
             }
             
-            ItemStack extracted = slotItem.split(Math.min(amount, slotItem.getCount()));
+            int toExtract = Math.min(amount, slotItem.getCount());
+            ItemStack extracted = slotItem.split(toExtract);
             
-            if (slotItem.isEmpty()) {
-                recycler.getContainer().setItem(slot, ItemStack.EMPTY);
+            if (!simulate) {
+                if (slotItem.isEmpty()) {
+                    recycler.getContainer().setItem(slot, ItemStack.EMPTY);
+                }
+            } else {
+                slotItem.grow(toExtract);
             }
             
             return extracted;
