@@ -10,7 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 
 public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
-    private static final Identifier TEXTURE = Identifier.fromNamespaceAndPath(RecyclerTable.MOD_ID, "textures/gui/recycler_gui.png");
+    private static final Identifier TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui.png");
 
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, 176, 166);
