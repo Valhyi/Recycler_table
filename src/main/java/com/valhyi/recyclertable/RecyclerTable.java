@@ -3,6 +3,7 @@ package com.valhyi.recyclertable;
 import com.valhyi.recyclertable.init.ModBlocks;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import com.valhyi.recyclertable.init.ModMenuTypes;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -28,5 +29,12 @@ public class RecyclerTable {
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
             event.accept(ModBlocks.RECYCLER_TABLE_ITEM);
         }
+    }
+
+    /**
+     * Creates an Identifier for this mod's resources
+     */
+    public static Identifier resLoc(String path) {
+        return Identifier.fromNamespaceAndPath(MOD_ID, path);
     }
 }
