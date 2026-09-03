@@ -23,7 +23,7 @@ public class RecyclerLogic {
 
         // Un item puede reciclarse si:
         // 1. Tiene encantamientos, O
-        // 2. Tiene una receta conocida (buscar directamente)
+        // 2. Tiene una receta conocida
         
         ItemEnchantments enchantments = itemStack.get(DataComponents.ENCHANTMENTS);
         boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
@@ -33,62 +33,7 @@ public class RecyclerLogic {
         }
 
         // Si no tiene encantamientos, verificar si tiene receta
-        return hasRecipe(itemStack, level);
-    }
-
-    public static boolean hasRecipe(ItemStack itemStack, Level level) {
-        if (level.isClientSide() || level.getServer() == null) {
-            return false;
-        }
-        
-        // Buscar en el RecipeManager del servidor
-        var recipeManager = level.getServer().getRecipeManager();
-        
-        // Buscar receta de crafteo que produce este item específicamente
-        for (RecipeHolder<?> recipeHolder : recipeManager.getRecipes()) {
-            var recipe = recipeHolder.value();
-            
-            // Solo verificar recetas de crafteo (Shaped o Shapeless)
-            if (recipe instanceof ShapedRecipe shapedRecipe) {
-                if (matchesRecipeOutput(shapedRecipe, itemStack)) {
-                    return true;
-                }
-            } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                if (matchesRecipeOutput(shapelessRecipe, itemStack)) {
-                    return true;
-                }
-            }
-        }
-        
-        return false;
-    }
-
-    /**
-     * Verifica si una receta produce el item especificado
-     */
-    private static boolean matchesRecipeOutput(ShapedRecipe recipe, ItemStack itemStack) {
-        try {
-            // Intentar obtener ingredientes - si existen, la receta es válida
-            List<Optional<Ingredient>> ingredients = recipe.getIngredients();
-            // Si podemos acceder, la receta es válida
-            // Asumimos que solo hay recetas válidas en el RecipeManager
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /**
-     * Verifica si una receta produce el item especificado
-     */
-    private static boolean matchesRecipeOutput(ShapelessRecipe recipe, ItemStack itemStack) {
-        try {
-            // Intentar acceder a ingredientes - si existen, la receta es válida
-            // Si podemos acceder, la receta es válida
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        return getRecipeIngredients(itemStack, level).size() > 0;
     }
 
     public static List<ItemStack> getRecipeIngredients(ItemStack inputStack, Level level) {
@@ -100,8 +45,7 @@ public class RecyclerLogic {
 
         var recipeManager = level.getServer().getRecipeManager();
         
-        // Buscar PRIMERA receta de crafteo válida y usar sus ingredientes
-        // (simplificar: solo devolver ingredientes sin verificar output específico)
+        // Buscar todas las recetas de crafteo y devolver ingredientes de la primera que coincida
         for (RecipeHolder<?> recipeHolder : recipeManager.getRecipes()) {
             var recipe = recipeHolder.value();
             
@@ -119,13 +63,22 @@ public class RecyclerLogic {
                         }
                     }
                 }
-                return ingredients;
+                // Retornar ingredientes de la primera receta encontrada
+                if (!ingredients.isEmpty()) {
+                    return ingredients;
+                }
             }
             // Verificar que sea una receta de Shapeless
             else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                // Obtener ingredientes usando getIngredients()
+                // Para ShapelessRecipe, acceder directamente al field ingredients (es público en algunas versiones)
                 try {
-                    for (Ingredient ingredient : shapelessRecipe.getIngredients()) {
+                    // Intentar acceder usando reflección como último recurso
+                    java.lang.reflect.Field field = ShapelessRecipe.class.getDeclaredField("ingredients");
+                    field.setAccessible(true);
+                    @SuppressWarnings("unchecked")
+                    List<Ingredient> ingredientsList = (List<Ingredient>) field.get(shapelessRecipe);
+                    
+                    for (Ingredient ingredient : ingredientsList) {
                         var firstItem = ingredient.items().findFirst();
                         if (firstItem.isPresent()) {
                             ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
@@ -133,7 +86,10 @@ public class RecyclerLogic {
                             ingredients.add(copy);
                         }
                     }
-                    return ingredients;
+                    // Retornar ingredientes de la primera receta encontrada
+                    if (!ingredients.isEmpty()) {
+                        return ingredients;
+                    }
                 } catch (Exception e) {
                     // Si falla, continuar a siguiente receta
                 }
@@ -146,12 +102,16 @@ public class RecyclerLogic {
     public static List<ItemStack> processRecycling(ItemStack inputStack, ItemStack emptyBottle, ItemStack book, Level level) {
         List<ItemStack> results = new ArrayList<>();
 
-        if (!canRecycle(inputStack, level)) {
-            // Si no puede reciclarse, NO devolver nada (rechazarlo)
+        if (inputStack.isEmpty() || level == null) {
             return results;
         }
 
         List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
+        
+        // Si no hay ingredientes, no se puede reciclar
+        if (ingredients.isEmpty()) {
+            return results;
+        }
         
         // Obtener encantamientos - Minecraft 26.2
         ItemEnchantments enchantments = inputStack.get(DataComponents.ENCHANTMENTS);
