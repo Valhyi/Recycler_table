@@ -1,8 +1,12 @@
 package com.valhyi.recyclertable.recipe;
 
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
 
@@ -36,9 +40,20 @@ public class RecyclerLogic {
             return false;
         }
         
-        // Por ahora, consideramos que cualquier item con durabilidad tiene receta
-        // TODO: Implementar búsqueda real de receta en el servidor
-        return itemStack.getMaxDamage() > 0;
+        // Buscar en el RecipeManager del servidor
+        var recipeManager = level.getServer().getRecipeManager();
+        
+        // Buscar receta de crafteo para este item
+        for (RecipeHolder<?> recipe : recipeManager.getRecipes()) {
+            if (recipe.value().getResultItem().is(itemStack.getItem())) {
+                // Verificar que sea una receta válida (Shaped o Shapeless)
+                if (recipe.value() instanceof ShapedRecipe || recipe.value() instanceof ShapelessRecipe) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
 
     public static List<ItemStack> getRecipeIngredients(ItemStack inputStack, Level level) {
@@ -48,8 +63,33 @@ public class RecyclerLogic {
             return ingredients;
         }
 
-        // TODO: Implementar extracción real de ingredientes de receta
-        // Por ahora retorna lista vacía
+        var recipeManager = level.getServer().getRecipeManager();
+        
+        // Buscar la receta para este item
+        for (RecipeHolder<?> recipe : recipeManager.getRecipes()) {
+            if (recipe.value().getResultItem().is(inputStack.getItem())) {
+                // Si es una receta válida (Shaped o Shapeless)
+                if (recipe.value() instanceof ShapedRecipe shapedRecipe) {
+                    // Obtener ingredientes de la receta
+                    for (var ingredient : shapedRecipe.getIngredients()) {
+                        ItemStack[] items = ingredient.getItems();
+                        if (items.length > 0) {
+                            ingredients.add(items[0].copy());
+                        }
+                    }
+                    break;
+                } else if (recipe.value() instanceof ShapelessRecipe shapelessRecipe) {
+                    // Obtener ingredientes de la receta
+                    for (var ingredient : shapelessRecipe.getIngredients()) {
+                        ItemStack[] items = ingredient.getItems();
+                        if (items.length > 0) {
+                            ingredients.add(items[0].copy());
+                        }
+                    }
+                    break;
+                }
+            }
+        }
         
         return ingredients;
     }
@@ -58,8 +98,7 @@ public class RecyclerLogic {
         List<ItemStack> results = new ArrayList<>();
 
         if (!canRecycle(inputStack, level)) {
-            // Si no puede reciclarse, enviar al output sin cambios
-            results.add(inputStack.copy());
+            // Si no puede reciclarse, NO devolver nada (rechazarlo)
             return results;
         }
 
