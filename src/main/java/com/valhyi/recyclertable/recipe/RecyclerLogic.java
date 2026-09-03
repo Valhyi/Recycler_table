@@ -3,7 +3,7 @@ package com.valhyi.recyclertable.recipe;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.crafting.CraftingInput;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
@@ -12,6 +12,7 @@ import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class RecyclerLogic {
 
@@ -48,10 +49,12 @@ public class RecyclerLogic {
             var recipe = recipeHolder.value();
             
             // Verificar que sea una receta de crafteo (Shaped o Shapeless)
-            if (recipe instanceof ShapedRecipe || recipe instanceof ShapelessRecipe) {
-                // Obtener el resultado de la receta
-                ItemStack result = recipe.getResult(CraftingInput.empty());
-                if (result.is(itemStack.getItem())) {
+            if (recipe instanceof ShapedRecipe shapedRecipe) {
+                if (shapedRecipe.result.item() == itemStack.getItem()) {
+                    return true;
+                }
+            } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
+                if (shapelessRecipe.result.item() == itemStack.getItem()) {
                     return true;
                 }
             }
@@ -75,25 +78,26 @@ public class RecyclerLogic {
             
             // Verificar que sea una receta válida (Shaped o Shapeless)
             if (recipe instanceof ShapedRecipe shapedRecipe) {
-                ItemStack result = recipe.getResult(CraftingInput.empty());
-                if (result.is(inputStack.getItem())) {
+                if (shapedRecipe.result.item() == inputStack.getItem()) {
                     // Obtener ingredientes de la receta
-                    for (var ingredient : shapedRecipe.getIngredients()) {
-                        ItemStack[] items = ingredient.getItems();
-                        if (items.length > 0) {
-                            ItemStack copy = items[0].copy();
-                            copy.setCount(1);
-                            ingredients.add(copy);
+                    for (Optional<Ingredient> optionalIngredient : shapedRecipe.getIngredients()) {
+                        if (optionalIngredient.isPresent()) {
+                            Ingredient ingredient = optionalIngredient.get();
+                            var items = ingredient.getItems();
+                            if (items.length > 0) {
+                                ItemStack copy = items[0].copy();
+                                copy.setCount(1);
+                                ingredients.add(copy);
+                            }
                         }
                     }
                     return ingredients;
                 }
             } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                ItemStack result = recipe.getResult(CraftingInput.empty());
-                if (result.is(inputStack.getItem())) {
+                if (shapelessRecipe.result.item() == inputStack.getItem()) {
                     // Obtener ingredientes de la receta
-                    for (var ingredient : shapelessRecipe.getIngredients()) {
-                        ItemStack[] items = ingredient.getItems();
+                    for (Ingredient ingredient : shapelessRecipe.ingredients) {
+                        var items = ingredient.getItems();
                         if (items.length > 0) {
                             ItemStack copy = items[0].copy();
                             copy.setCount(1);
