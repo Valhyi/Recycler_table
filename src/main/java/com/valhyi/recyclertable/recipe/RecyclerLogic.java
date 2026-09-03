@@ -70,28 +70,19 @@ public class RecyclerLogic {
             }
             // Verificar que sea una receta de Shapeless
             else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                // Para ShapelessRecipe, acceder directamente al field ingredients (es público en algunas versiones)
-                try {
-                    // Intentar acceder usando reflección como último recurso
-                    java.lang.reflect.Field field = ShapelessRecipe.class.getDeclaredField("ingredients");
-                    field.setAccessible(true);
-                    @SuppressWarnings("unchecked")
-                    List<Ingredient> ingredientsList = (List<Ingredient>) field.get(shapelessRecipe);
-                    
-                    for (Ingredient ingredient : ingredientsList) {
-                        var firstItem = ingredient.items().findFirst();
-                        if (firstItem.isPresent()) {
-                            ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
-                            copy.setCount(1);
-                            ingredients.add(copy);
-                        }
+                // Para ShapelessRecipe, acceder directamente al field public ingredients
+                // Basado en UncraftEverything: shapelessRecipe.ingredients
+                for (Ingredient ingredient : shapelessRecipe.ingredients) {
+                    var firstItem = ingredient.items().findFirst();
+                    if (firstItem.isPresent()) {
+                        ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
+                        copy.setCount(1);
+                        ingredients.add(copy);
                     }
-                    // Retornar ingredientes de la primera receta encontrada
-                    if (!ingredients.isEmpty()) {
-                        return ingredients;
-                    }
-                } catch (Exception e) {
-                    // Si falla, continuar a siguiente receta
+                }
+                // Retornar ingredientes de la primera receta encontrada
+                if (!ingredients.isEmpty()) {
+                    return ingredients;
                 }
             }
         }
