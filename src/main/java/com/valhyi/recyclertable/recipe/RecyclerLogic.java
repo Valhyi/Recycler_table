@@ -10,6 +10,7 @@ import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -49,26 +50,8 @@ public class RecyclerLogic {
             var recipe = recipeHolder.value();
             
             // Verificar que sea una receta de crafteo (Shaped o Shapeless)
-            if (recipe instanceof ShapedRecipe shapedRecipe) {
-                // Comparar directamente con el item
-                try {
-                    ItemStack result = shapedRecipe.result.create();
-                    if (result.is(itemStack.getItem())) {
-                        return true;
-                    }
-                } catch (Exception e) {
-                    // Si no puede acceder a result, intentar otra forma
-                }
-            } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                // Comparar directamente con el item
-                try {
-                    ItemStack result = shapelessRecipe.result.create();
-                    if (result.is(itemStack.getItem())) {
-                        return true;
-                    }
-                } catch (Exception e) {
-                    // Si no puede acceder a result, intentar otra forma
-                }
+            if (recipe instanceof ShapedRecipe || recipe instanceof ShapelessRecipe) {
+                return true;
             }
         }
         
@@ -90,46 +73,40 @@ public class RecyclerLogic {
             
             // Verificar que sea una receta válida (Shaped)
             if (recipe instanceof ShapedRecipe shapedRecipe) {
-                try {
-                    ItemStack result = shapedRecipe.result.create();
-                    if (result.is(inputStack.getItem())) {
-                        // Obtener ingredientes de la receta (List<Optional<Ingredient>>)
-                        for (Optional<Ingredient> optionalIngredient : shapedRecipe.getIngredients()) {
-                            if (optionalIngredient.isPresent()) {
-                                Ingredient ingredient = optionalIngredient.get();
-                                // Usar ingredient.items() para obtener los items
-                                var firstItem = ingredient.items().findFirst();
-                                if (firstItem.isPresent()) {
-                                    ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
-                                    copy.setCount(1);
-                                    ingredients.add(copy);
-                                }
-                            }
+                // Obtener ingredientes de la receta
+                for (Optional<Ingredient> optionalIngredient : shapedRecipe.getIngredients()) {
+                    if (optionalIngredient.isPresent()) {
+                        Ingredient ingredient = optionalIngredient.get();
+                        var firstItem = ingredient.items().findFirst();
+                        if (firstItem.isPresent()) {
+                            ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
+                            copy.setCount(1);
+                            ingredients.add(copy);
                         }
-                        return ingredients;
                     }
-                } catch (Exception e) {
-                    // Ignorar si no puede acceder
                 }
+                return ingredients;
             } 
             // Verificar que sea una receta válida (Shapeless)
             else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
+                // Obtener ingredientes usando reflexión para acceder al field privado
                 try {
-                    ItemStack result = shapelessRecipe.result.create();
-                    if (result.is(inputStack.getItem())) {
-                        // Obtener ingredientes usando acceso directo a ingredients field
-                        for (Ingredient ingredient : shapelessRecipe.ingredients) {
-                            var firstItem = ingredient.items().findFirst();
-                            if (firstItem.isPresent()) {
-                                ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
-                                copy.setCount(1);
-                                ingredients.add(copy);
-                            }
+                    Field ingredientsField = ShapelessRecipe.class.getDeclaredField("ingredients");
+                    ingredientsField.setAccessible(true);
+                    @SuppressWarnings("unchecked")
+                    List<Ingredient> ingredientsList = (List<Ingredient>) ingredientsField.get(shapelessRecipe);
+                    
+                    for (Ingredient ingredient : ingredientsList) {
+                        var firstItem = ingredient.items().findFirst();
+                        if (firstItem.isPresent()) {
+                            ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
+                            copy.setCount(1);
+                            ingredients.add(copy);
                         }
-                        return ingredients;
                     }
+                    return ingredients;
                 } catch (Exception e) {
-                    // Ignorar si no puede acceder
+                    // Si falla la reflexión, ignorar
                 }
             }
         }
