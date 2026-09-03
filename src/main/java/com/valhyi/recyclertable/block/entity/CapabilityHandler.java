@@ -1,11 +1,16 @@
 package com.valhyi.recyclertable.block.entity;
 
+import com.valhyi.recyclertable.init.ModBlockEntities;
+import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.neoforged.neoforge.items.IItemHandler;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Manejador de capacidades para el RecyclerBlockEntity
@@ -20,7 +25,7 @@ public class CapabilityHandler {
         event.registerBlockEntity(
             Capabilities.ItemHandler.BLOCK,
             ModBlockEntities.RECYCLER_BLOCK_ENTITY.get(),
-            (blockEntity, side) -> new RecyclerItemHandler(blockEntity, side)
+            (blockEntity, side) -> new RecyclerItemHandler((RecyclerBlockEntity) blockEntity, side)
         );
     }
     
@@ -29,20 +34,27 @@ public class CapabilityHandler {
      * - Entrada: slots 0-8 (input grid)
      * - Salida: slots 12-20 (output grid)
      */
-    public static class RecyclerItemHandler extends ItemStackHandler {
+    public static class RecyclerItemHandler implements IItemHandler {
         private final RecyclerBlockEntity recycler;
         @Nullable
         private final Direction side;
         
         public RecyclerItemHandler(RecyclerBlockEntity recycler, @Nullable Direction side) {
-            super(21); // 21 slots
             this.recycler = recycler;
             this.side = side;
-            
-            // Sincronizar con el contenedor del reciclador
-            for (int i = 0; i < 21; i++) {
-                stacks.set(i, recycler.getContainer().getItem(i));
+        }
+        
+        @Override
+        public int getSlots() {
+            return 21;
+        }
+        
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            if (slot < 0 || slot >= 21) {
+                return ItemStack.EMPTY;
             }
+            return recycler.getContainer().getItem(slot);
         }
         
         @Override
@@ -95,30 +107,16 @@ public class CapabilityHandler {
             }
             
             int toExtract = Math.min(amount, slotItem.getCount());
-            ItemStack extracted = slotItem.split(toExtract);
             
             if (!simulate) {
+                ItemStack extracted = slotItem.split(toExtract);
                 if (slotItem.isEmpty()) {
                     recycler.getContainer().setItem(slot, ItemStack.EMPTY);
                 }
+                return extracted;
             } else {
-                slotItem.grow(toExtract);
+                return slotItem.copyWithCount(toExtract);
             }
-            
-            return extracted;
-        }
-        
-        @Override
-        public int getSlots() {
-            return 21;
-        }
-        
-        @Override
-        public ItemStack getStackInSlot(int slot) {
-            if (slot < 0 || slot >= 21) {
-                return ItemStack.EMPTY;
-            }
-            return recycler.getContainer().getItem(slot);
         }
         
         @Override
@@ -129,11 +127,7 @@ public class CapabilityHandler {
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
             // Input grid (0-8) acepta cualquier cosa
-            if (slot >= 0 && slot <= 8) {
-                return true;
-            }
-            // Output grid (12-20) no acepta items (solo lectura)
-            return false;
+            return slot >= 0 && slot <= 8;
         }
     }
 }

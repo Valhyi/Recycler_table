@@ -123,10 +123,9 @@ public class RecyclerLogic {
             }
             // Verificar que sea una receta de Shapeless
             else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                // Obtener ingredientes accediendo directamente
+                // Obtener ingredientes usando getIngredients()
                 try {
-                    // Intentar usar getIngredients() si existe
-                    for (Ingredient ingredient : shapelessRecipe.ingredients) {
+                    for (Ingredient ingredient : shapelessRecipe.getIngredients()) {
                         var firstItem = ingredient.items().findFirst();
                         if (firstItem.isPresent()) {
                             ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
