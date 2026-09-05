@@ -100,6 +100,48 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     /**
+     * Verifica si hay espacio en el output para colocar todos los items
+     */
+    private boolean canFitAllResults(java.util.List<ItemStack> results) {
+        // Crear una copia de los slots de output para simular la colocación
+        ItemStack[] tempSlots = new ItemStack[9];
+        for (int i = 0; i < 9; i++) {
+            tempSlots[i] = container.getItem(12 + i).copy();
+        }
+
+        // Intentar colocar todos los resultados en los slots temporales
+        for (ItemStack result : results) {
+            boolean placed = false;
+            ItemStack toPlace = result.copy();
+
+            for (int i = 0; i < 9; i++) {
+                if (tempSlots[i].isEmpty()) {
+                    tempSlots[i] = toPlace.copy();
+                    placed = true;
+                    break;
+                } else if (ItemStack.isSameItemSameComponents(tempSlots[i], toPlace)) {
+                    int space = tempSlots[i].getMaxStackSize() - tempSlots[i].getCount();
+                    if (space > 0) {
+                        int transfer = Math.min(space, toPlace.getCount());
+                        tempSlots[i].grow(transfer);
+                        toPlace.shrink(transfer);
+                        if (toPlace.isEmpty()) {
+                            placed = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!placed) {
+                return false; // No hay espacio para este item
+            }
+        }
+
+        return true; // Hay espacio para todos
+    }
+
+    /**
      * Completa el reciclaje y coloca los resultados en el output
      */
     private void completeRecycling() {
@@ -121,9 +163,13 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
             results.add(itemInProcess.copy());
         }
 
-        // Colocar resultados en el grid de output (slots 12-20)
-        boolean allResultsPlaced = true;
-        
+        // Verificar si hay espacio para TODOS los resultados
+        if (!canFitAllResults(results)) {
+            // No hay espacio, dejar el item en slot 9 y reintentar después
+            return;
+        }
+
+        // Hay espacio, colocar resultados en el grid de output (slots 12-20)
         for (ItemStack result : results) {
             boolean placed = false;
             
@@ -147,18 +193,6 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
                     }
                 }
             }
-            
-            if (!placed) {
-                allResultsPlaced = false;
-                break;
-            }
-        }
-
-        // Si no se colocaron todos los resultados, NO limpiar el slot 9 (reintentar en el próximo ciclo)
-        if (!allResultsPlaced) {
-            // Dejar el item en el slot 9 para reintentar después
-            // NO hacer nada, el item se quedará en slot 9
-            return;
         }
 
         // Consumir recursos si fue encantado
