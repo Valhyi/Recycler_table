@@ -4,10 +4,9 @@ import com.valhyi.recyclertable.gui.RecyclerMenu;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import com.valhyi.recyclertable.recipe.RecyclerLogic;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
@@ -16,15 +15,15 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.Nullable;
 
-public class RecyclerBlockEntity extends BlockEntity implements MenuProvider, Container {
+public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     private final SimpleContainer container = new SimpleContainer(21) {
         @Override
         public void setChanged() {
@@ -218,17 +217,13 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider, Co
         }
 
         // Consumir recursos si fue encantado
-        net.minecraft.core.component.DataComponents dataComponents = null;
-        if (dataComponents != null) {
-            // Obtener encantamientos
-            var enchantments = itemInProcess.get(net.minecraft.core.component.DataComponents.ENCHANTMENTS);
-            if (enchantments != null && !enchantments.isEmpty()) {
-                if (!emptyBottle.isEmpty()) {
-                    emptyBottle.shrink(1);
-                }
-                if (!book.isEmpty()) {
-                    book.shrink(1);
-                }
+        ItemEnchantments enchantments = itemInProcess.get(DataComponents.ENCHANTMENTS);
+        if (enchantments != null && !enchantments.isEmpty()) {
+            if (!emptyBottle.isEmpty()) {
+                emptyBottle.shrink(1);
+            }
+            if (!book.isEmpty()) {
+                book.shrink(1);
             }
         }
 
@@ -270,54 +265,6 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider, Co
         }
         
         super.setRemoved();
-    }
-
-    // ========== Container Implementation para compatibilidad con Tolvas ==========
-    
-    @Override
-    public int getContainerSize() {
-        return container.getContainerSize();
-    }
-
-    @Override
-    public boolean isEmpty() {
-        return container.isEmpty();
-    }
-
-    @Override
-    public ItemStack getItem(int slot) {
-        return container.getItem(slot);
-    }
-
-    @Override
-    public ItemStack removeItem(int slot, int amount) {
-        return container.removeItem(slot, amount);
-    }
-
-    @Override
-    public ItemStack removeItemNoUpdate(int slot) {
-        return container.removeItemNoUpdate(slot);
-    }
-
-    @Override
-    public void setItem(int slot, ItemStack itemStack) {
-        container.setItem(slot, itemStack);
-    }
-
-    @Override
-    public void setChanged() {
-        container.setChanged();
-        super.setChanged();
-    }
-
-    @Override
-    public boolean stillValid(Player player) {
-        return true;
-    }
-
-    @Override
-    public void clearContent() {
-        container.clearContent();
     }
 
     @Override
