@@ -17,6 +17,20 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 public class RecyclerMenu extends AbstractContainerMenu {
     private final Container container;
 
+    // Constantes de slots
+    private static final int CONTAINER_SIZE = 21;
+    private static final int INPUT_SLOTS_START = 0;   // 0-8
+    private static final int INPUT_SLOTS_END = 9;
+    private static final int PROCESSING_SLOT = 9;
+    private static final int BOTTLE_SLOT = 10;
+    private static final int BOOK_SLOT = 11;
+    private static final int OUTPUT_SLOTS_START = 12;  // 12-20
+    private static final int OUTPUT_SLOTS_END = 21;
+    private static final int PLAYER_INV_START = 21;
+    private static final int PLAYER_INV_END = 48;
+    private static final int PLAYER_HOTBAR_START = 48;
+    private static final int PLAYER_HOTBAR_END = 57;
+
     public RecyclerMenu(int containerId, Inventory playerInventory, RegistryFriendlyByteBuf extraData) {
         this(containerId, playerInventory, extraData.readBlockPos());
     }
@@ -77,8 +91,45 @@ public class RecyclerMenu extends AbstractContainerMenu {
     }
 
     @Override
-    public ItemStack quickMoveStack(Player player, int index) {
-        return ItemStack.EMPTY;
+    public ItemStack quickMoveStack(Player player, int slotIndex) {
+        ItemStack itemStack = ItemStack.EMPTY;
+        Slot slot = this.slots.get(slotIndex);
+
+        if (slot != null && slot.hasItem()) {
+            ItemStack slotStack = slot.getItem();
+            itemStack = slotStack.copy();
+
+            // Si es del inventario del jugador o hotbar -> mover al input de la mesa
+            if (slotIndex >= PLAYER_INV_START) {
+                if (!this.moveItemStackTo(slotStack, INPUT_SLOTS_START, INPUT_SLOTS_END, false)) {
+                    return ItemStack.EMPTY;
+                }
+            }
+            // Si es del output de la mesa -> mover al inventario del jugador
+            else if (slotIndex >= OUTPUT_SLOTS_START && slotIndex < OUTPUT_SLOTS_END) {
+                if (!this.moveItemStackTo(slotStack, PLAYER_INV_START, PLAYER_HOTBAR_END, true)) {
+                    return ItemStack.EMPTY;
+                }
+            }
+            // Si es del input de la mesa -> mover al inventario del jugador
+            else if (slotIndex >= INPUT_SLOTS_START && slotIndex < INPUT_SLOTS_END) {
+                if (!this.moveItemStackTo(slotStack, PLAYER_INV_START, PLAYER_HOTBAR_END, true)) {
+                    return ItemStack.EMPTY;
+                }
+            }
+            // Slots centrales (9, 10, 11) no se pueden mover con shift-click
+            else {
+                return ItemStack.EMPTY;
+            }
+
+            if (slotStack.isEmpty()) {
+                slot.set(ItemStack.EMPTY);
+            } else {
+                slot.setChanged();
+            }
+        }
+
+        return itemStack;
     }
 
     @Override
