@@ -141,9 +141,6 @@ public class RecyclerLogic {
             return results;
         }
 
-        // Obtener cantidad del item a reciclar
-        int itemCount = inputStack.getCount();
-        
         // Obtener encantamientos - Minecraft 26.2
         ItemEnchantments enchantments = inputStack.get(DataComponents.ENCHANTMENTS);
         boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
@@ -163,13 +160,9 @@ public class RecyclerLogic {
                 return results;
             }
 
-            // Si tiene receta, devolver ingredientes x cantidad + libro + botella XP
+            // Si tiene receta, devolver ingredientes + libro + botella XP
             if (!ingredients.isEmpty()) {
-                for (ItemStack ingredient : ingredients) {
-                    ItemStack ingredientResult = ingredient.copy();
-                    ingredientResult.setCount(ingredient.getCount() * itemCount);
-                    results.add(ingredientResult);
-                }
+                results.addAll(ingredients);
             }
             // Si NO tiene receta, solo devolver libro + botella XP (sin ingredientes)
 
@@ -184,12 +177,8 @@ public class RecyclerLogic {
         } else {
             // Item SIN ENCANTAMIENTOS
             if (!ingredients.isEmpty()) {
-                // Tiene receta → devolver ingredientes x cantidad
-                for (ItemStack ingredient : ingredients) {
-                    ItemStack ingredientResult = ingredient.copy();
-                    ingredientResult.setCount(ingredient.getCount() * itemCount);
-                    results.add(ingredientResult);
-                }
+                // Tiene receta → devolver ingredientes
+                results.addAll(ingredients);
             } else {
                 // Sin receta → devolver item original
                 results.add(inputStack.copy());
