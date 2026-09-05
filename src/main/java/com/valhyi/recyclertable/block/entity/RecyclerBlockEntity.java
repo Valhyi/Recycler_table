@@ -32,7 +32,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     };
 
     private int processingTicks = 0;
-    private static final int PROCESSING_TIME = 3;
+    private static final int PROCESSING_TIME = 6; // Cada 6 ticks se procesa 1 item
 
     public RecyclerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.RECYCLER_BLOCK_ENTITY.get(), pos, state);
@@ -84,11 +84,16 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         for (int i = 0; i < 9; i++) {
             ItemStack inputItem = container.getItem(i);
             if (!inputItem.isEmpty() && RecyclerLogic.canRecycle(inputItem, level)) {
+                // Crear una copia de solo 1 item
+                ItemStack singleItem = inputItem.copy();
+                singleItem.setCount(1);
+                
                 // Iniciar procesamiento
                 processingTicks = PROCESSING_TIME;
                 // Guardar el item en proceso en el slot central (slot 9)
-                container.setItem(9, inputItem.copy());
-                container.setItem(i, ItemStack.EMPTY);
+                container.setItem(9, singleItem);
+                // Reducir la cantidad en el slot original
+                inputItem.shrink(1);
                 return;
             }
         }
@@ -107,7 +112,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         ItemStack emptyBottle = container.getItem(10);
         ItemStack book = container.getItem(11);
 
-        // Procesar el reciclaje
+        // Procesar el reciclaje (solo 1 item)
         java.util.List<ItemStack> results = RecyclerLogic.processRecycling(itemInProcess, emptyBottle, book, this.level);
 
         // Si no hay resultados, devolver el item original al output (item sin receta)
@@ -149,9 +154,10 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
             }
         }
 
-        // Si no se colocaron todos los resultados, devolver item al input
+        // Si no se colocaron todos los resultados, NO limpiar el slot 9 (reintentar en el próximo ciclo)
         if (!allResultsPlaced) {
-            container.setItem(9, itemInProcess);
+            // Dejar el item en el slot 9 para reintentar después
+            // NO hacer nada, el item se quedará en slot 9
             return;
         }
 
