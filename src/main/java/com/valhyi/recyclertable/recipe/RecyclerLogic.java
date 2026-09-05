@@ -135,30 +135,30 @@ public class RecyclerLogic {
             return results;
         }
 
-        List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
-        
-        // Si no hay ingredientes, no se puede reciclar
-        if (ingredients.isEmpty()) {
-            return results;
-        }
-        
         // Obtener encantamientos - Minecraft 26.2
         ItemEnchantments enchantments = inputStack.get(DataComponents.ENCHANTMENTS);
         boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
         boolean hasEmptyBottle = !emptyBottle.isEmpty();
         boolean hasBook = !book.isEmpty();
 
-        // Si está encantado
+        // Obtener ingredientes de la receta (si existe)
+        List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
+        
+        // Procesar según el tipo de item
         if (isEnchanted) {
+            // Item ENCANTADO
             // Validar que tenga los recursos necesarios (botella y libro)
             if (!hasEmptyBottle || !hasBook) {
-                // No puede procesar sin recursos, enviar item original al output
+                // No puede procesar sin recursos, devolver item original
                 results.add(inputStack.copy());
                 return results;
             }
 
-            // Devolver ingredientes del item
-            results.addAll(ingredients);
+            // Si tiene receta, devolver ingredientes + libro + botella XP
+            if (!ingredients.isEmpty()) {
+                results.addAll(ingredients);
+            }
+            // Si NO tiene receta, solo devolver libro + botella XP (sin ingredientes)
 
             // Crear libro con encantamientos (Cut & Paste de TODOS los encantamientos)
             ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
@@ -169,8 +169,14 @@ public class RecyclerLogic {
             ItemStack xpBottle = new ItemStack(Items.EXPERIENCE_BOTTLE);
             results.add(xpBottle);
         } else {
-            // Sin encantamientos, solo devolver ingredientes
-            results.addAll(ingredients);
+            // Item SIN ENCANTAMIENTOS
+            if (!ingredients.isEmpty()) {
+                // Tiene receta → devolver ingredientes
+                results.addAll(ingredients);
+            } else {
+                // Sin receta → devolver item original
+                results.add(inputStack.copy());
+            }
         }
 
         return results;
