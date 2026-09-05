@@ -4,8 +4,8 @@ import com.valhyi.recyclertable.gui.RecyclerMenu;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import com.valhyi.recyclertable.recipe.RecyclerLogic;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.Containers;
@@ -21,6 +21,9 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.item.VanillaContainerWrapper;
 import org.jetbrains.annotations.Nullable;
 
 public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
@@ -52,6 +55,13 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
     public SimpleContainer getContainer() {
         return container;
+    }
+
+    /**
+     * Hopper compatibility: Provides ItemHandler capability for hopper interaction
+     */
+    public static ResourceHandler<ItemResource> getCapability(RecyclerBlockEntity blockEntity, Direction direction) {
+        return VanillaContainerWrapper.of(blockEntity.container);
     }
 
     /**
@@ -217,7 +227,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         }
 
         // Consumir recursos si fue encantado
-        ItemEnchantments enchantments = itemInProcess.get(DataComponents.ENCHANTMENTS);
+        ItemEnchantments enchantments = itemInProcess.get(net.minecraft.core.component.DataComponents.ENCHANTMENTS);
         if (enchantments != null && !enchantments.isEmpty()) {
             if (!emptyBottle.isEmpty()) {
                 emptyBottle.shrink(1);
