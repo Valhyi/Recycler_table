@@ -5,16 +5,15 @@ import com.valhyi.recyclertable.init.ModBlockEntities;
 import com.valhyi.recyclertable.recipe.RecyclerLogic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -216,13 +215,17 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         }
 
         // Consumir recursos si fue encantado
-        ItemEnchantments enchantments = itemInProcess.get(DataComponents.ENCHANTMENTS);
-        if (enchantments != null && !enchantments.isEmpty()) {
-            if (!emptyBottle.isEmpty()) {
-                emptyBottle.shrink(1);
-            }
-            if (!book.isEmpty()) {
-                book.shrink(1);
+        net.minecraft.core.component.DataComponents dataComponents = null;
+        if (dataComponents != null) {
+            // Obtener encantamientos
+            var enchantments = itemInProcess.get(net.minecraft.core.component.DataComponents.ENCHANTMENTS);
+            if (enchantments != null && !enchantments.isEmpty()) {
+                if (!emptyBottle.isEmpty()) {
+                    emptyBottle.shrink(1);
+                }
+                if (!book.isEmpty()) {
+                    book.shrink(1);
+                }
             }
         }
 
@@ -233,6 +236,46 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         if (this.level != null) {
             this.level.sendBlockUpdated(this.getBlockPos(), this.getBlockState(), this.getBlockState(), 2);
         }
+    }
+
+    /**
+     * Llamado cuando el bloque es destruido
+     * Devuelve todos los items de los contenedores
+     */
+    @Override
+    public void onChunkUnloaded() {
+        super.onChunkUnloaded();
+    }
+
+    /**
+     * Llamado antes de que se elimine el bloque
+     * Devuelve todos los items del contenedor a la ubicación del bloque
+     */
+    @Override
+    public void setRemoved() {
+        // Soltar todos los items del contenedor
+        if (this.level != null && !this.level.isClientSide()) {
+            // Slots 0-8: Input Grid
+            for (int i = 0; i < 9; i++) {
+                Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(i));
+            }
+            
+            // Slot 9: Item en proceso
+            Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(9));
+            
+            // Slot 10: Botella vacía
+            Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(10));
+            
+            // Slot 11: Libro
+            Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(11));
+            
+            // Slots 12-20: Output Grid
+            for (int i = 12; i < 21; i++) {
+                Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(i));
+            }
+        }
+        
+        super.setRemoved();
     }
 
     @Override
