@@ -110,6 +110,12 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         // Procesar el reciclaje
         java.util.List<ItemStack> results = RecyclerLogic.processRecycling(itemInProcess, emptyBottle, book, this.level);
 
+        // Si no hay resultados, devolver el item original al output (item sin receta)
+        if (results.isEmpty()) {
+            results = new java.util.ArrayList<>();
+            results.add(itemInProcess.copy());
+        }
+
         // Colocar resultados en el grid de output (slots 12-20)
         boolean allResultsPlaced = true;
         
