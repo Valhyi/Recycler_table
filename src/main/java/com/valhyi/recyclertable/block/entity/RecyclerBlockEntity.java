@@ -66,39 +66,6 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         entity.tick(level, pos, state);
     }
 
-    public void tick(Level level, BlockPos pos, BlockState state) {
-        if (level == null || level.isClientSide()) {
-            return;
-        }
-
-        // Si está procesando, decrementar contador
-        if (processingTicks > 0) {
-            processingTicks--;
-            if (processingTicks == 0) {
-                completeRecycling();
-            }
-            return;
-        }
-
-        // Buscar item reciclable en el grid de entrada (slots 0-8)
-        for (int i = 0; i < 9; i++) {
-            ItemStack inputItem = container.getItem(i);
-            if (!inputItem.isEmpty() && RecyclerLogic.canRecycle(inputItem, level)) {
-                // Crear una copia de solo 1 item
-                ItemStack singleItem = inputItem.copy();
-                singleItem.setCount(1);
-                
-                // Iniciar procesamiento
-                processingTicks = PROCESSING_TIME;
-                // Guardar el item en proceso en el slot central (slot 9)
-                container.setItem(9, singleItem);
-                // Reducir la cantidad en el slot original
-                inputItem.shrink(1);
-                return;
-            }
-        }
-    }
-
     /**
      * Verifica si hay espacio en el output para colocar todos los items
      */
@@ -141,6 +108,65 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         return true; // Hay espacio para todos
     }
 
+    public void tick(Level level, BlockPos pos, BlockState state) {
+        if (level == null || level.isClientSide()) {
+            return;
+        }
+
+        // Si está procesando, decrementar contador
+        if (processingTicks > 0) {
+            processingTicks--;
+            if (processingTicks == 0) {
+                completeRecycling();
+            }
+            return;
+        }
+
+        // Si hay un item en slot 9, NO hacer nada (esperar a que se procese)
+        if (!container.getItem(9).isEmpty()) {
+            return;
+        }
+
+        // Buscar item reciclable en el grid de entrada (slots 0-8)
+        for (int i = 0; i < 9; i++) {
+            ItemStack inputItem = container.getItem(i);
+            if (!inputItem.isEmpty() && RecyclerLogic.canRecycle(inputItem, level)) {
+                // Crear una copia de solo 1 item
+                ItemStack singleItem = inputItem.copy();
+                singleItem.setCount(1);
+                
+                // Obtener botellas vacías y libros
+                ItemStack emptyBottle = container.getItem(10);
+                ItemStack book = container.getItem(11);
+
+                // Procesar para obtener los resultados
+                java.util.List<ItemStack> results = RecyclerLogic.processRecycling(singleItem, emptyBottle, book, level);
+                
+                // Si no hay resultados, usar el item original
+                if (results.isEmpty()) {
+                    results = new java.util.ArrayList<>();
+                    results.add(singleItem.copy());
+                }
+
+                // VERIFICAR SI CABE ANTES DE CONSUMIR EL ITEM
+                if (!canFitAllResults(results)) {
+                    // No hay espacio, NO hacer nada (pausa automática)
+                    return;
+                }
+
+                // HAY ESPACIO: Reducir el item del input
+                inputItem.shrink(1);
+                
+                // Guardar el item en proceso en el slot central (slot 9)
+                container.setItem(9, singleItem);
+                
+                // Iniciar procesamiento
+                processingTicks = PROCESSING_TIME;
+                return;
+            }
+        }
+    }
+
     /**
      * Completa el reciclaje y coloca los resultados en el output
      */
@@ -163,13 +189,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
             results.add(itemInProcess.copy());
         }
 
-        // Verificar si hay espacio para TODOS los resultados
-        if (!canFitAllResults(results)) {
-            // No hay espacio, dejar el item en slot 9 y reintentar después
-            return;
-        }
-
-        // Hay espacio, colocar resultados en el grid de output (slots 12-20)
+        // Colocar resultados en el grid de output (slots 12-20)
         for (ItemStack result : results) {
             boolean placed = false;
             
