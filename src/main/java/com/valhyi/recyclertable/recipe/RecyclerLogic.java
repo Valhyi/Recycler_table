@@ -11,6 +11,7 @@ import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
 import com.valhyi.recyclertable.mixin.ShapelessRecipeAccessor;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +38,38 @@ public class RecyclerLogic {
         return getRecipeIngredients(itemStack, level).size() > 0;
     }
 
+    /**
+     * Obtiene el resultado de una receta (ShapedRecipe o ShapelessRecipe)
+     */
+    private static ItemStack getRecipeResult(Object recipe) {
+        try {
+            if (recipe instanceof ShapedRecipe shapedRecipe) {
+                // ShapedRecipe: acceder al field 'result' usando reflexión
+                Field resultField = ShapedRecipe.class.getDeclaredField("result");
+                resultField.setAccessible(true);
+                Object resultObj = resultField.get(shapedRecipe);
+                
+                // resultObj es un ItemStackTemplate, llamar create()
+                if (resultObj != null) {
+                    return (ItemStack) resultObj.getClass().getMethod("create").invoke(resultObj);
+                }
+            } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
+                // ShapelessRecipe: acceder al field 'result'
+                Field resultField = ShapelessRecipe.class.getDeclaredField("result");
+                resultField.setAccessible(true);
+                Object resultObj = resultField.get(shapelessRecipe);
+                
+                // resultObj es un ItemStackTemplate, llamar create()
+                if (resultObj != null) {
+                    return (ItemStack) resultObj.getClass().getMethod("create").invoke(resultObj);
+                }
+            }
+        } catch (Exception e) {
+            // Ignorar si falla
+        }
+        return ItemStack.EMPTY;
+    }
+
     public static List<ItemStack> getRecipeIngredients(ItemStack inputStack, Level level) {
         List<ItemStack> ingredients = new ArrayList<>();
 
@@ -46,35 +79,20 @@ public class RecyclerLogic {
 
         var recipeManager = level.getServer().getRecipeManager();
         
-        // Buscar todas las recetas de crafteo y devolver ingredientes de la primera que coincida
+        // Buscar la receta que produce exactamente este item
         for (RecipeHolder<?> recipeHolder : recipeManager.getRecipes()) {
             var recipe = recipeHolder.value();
             
-            // Verificar que sea una receta de Shaped
-            if (recipe instanceof ShapedRecipe shapedRecipe) {
-                // Obtener ingredientes de la receta
-                for (Optional<Ingredient> optionalIngredient : shapedRecipe.getIngredients()) {
-                    if (optionalIngredient.isPresent()) {
-                        Ingredient ingredient = optionalIngredient.get();
-                        var firstItem = ingredient.items().findFirst();
-                        if (firstItem.isPresent()) {
-                            ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
-                            copy.setCount(1);
-                            ingredients.add(copy);
-                        }
-                    }
-                }
-                // Retornar ingredientes de la primera receta encontrada
-                if (!ingredients.isEmpty()) {
-                    return ingredients;
-                }
-            }
-            // Verificar que sea una receta de Shapeless
-            else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                // Usar el Mixin accessor para acceder a ingredientes privados
-                try {
-                    if (shapelessRecipe instanceof ShapelessRecipeAccessor accessor) {
-                        for (Ingredient ingredient : accessor.getIngredients()) {
+            // Obtener el resultado de la receta
+            ItemStack recipeResult = getRecipeResult(recipe);
+            
+            // Verificar si el resultado coincide con el input (mismo item)
+            if (!recipeResult.isEmpty() && recipeResult.getItem() == inputStack.getItem()) {
+                // Receta encontrada! Extraer ingredientes
+                if (recipe instanceof ShapedRecipe shapedRecipe) {
+                    for (Optional<Ingredient> optionalIngredient : shapedRecipe.getIngredients()) {
+                        if (optionalIngredient.isPresent()) {
+                            Ingredient ingredient = optionalIngredient.get();
                             var firstItem = ingredient.items().findFirst();
                             if (firstItem.isPresent()) {
                                 ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
@@ -82,13 +100,27 @@ public class RecyclerLogic {
                                 ingredients.add(copy);
                             }
                         }
-                        // Retornar ingredientes de la primera receta encontrada
-                        if (!ingredients.isEmpty()) {
+                    }
+                    return ingredients;
+                }
+                // Verificar que sea una receta de Shapeless
+                else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
+                    // Usar el Mixin accessor para acceder a ingredientes privados
+                    try {
+                        if (shapelessRecipe instanceof ShapelessRecipeAccessor accessor) {
+                            for (Ingredient ingredient : accessor.getIngredients()) {
+                                var firstItem = ingredient.items().findFirst();
+                                if (firstItem.isPresent()) {
+                                    ItemStack copy = firstItem.get().value().getDefaultInstance().copy();
+                                    copy.setCount(1);
+                                    ingredients.add(copy);
+                                }
+                            }
                             return ingredients;
                         }
+                    } catch (Exception e) {
+                        // Si falla, continuar a siguiente receta
                     }
-                } catch (Exception e) {
-                    // Si falla, continuar a siguiente receta
                 }
             }
         }
