@@ -26,6 +26,7 @@ public class RecyclerLogic {
         // Un item puede reciclarse si:
         // 1. Tiene encantamientos, O
         // 2. Tiene una receta conocida
+        // NOTA: Items sin receta también pasan (serán devueltos al output)
         
         ItemEnchantments enchantments = itemStack.get(DataComponents.ENCHANTMENTS);
         boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
@@ -34,8 +35,13 @@ public class RecyclerLogic {
             return true;
         }
 
-        // Si no tiene encantamientos, verificar si tiene receta
-        return getRecipeIngredients(itemStack, level).size() > 0;
+        // Si tiene receta, puede reciclarse
+        if (getRecipeIngredients(itemStack, level).size() > 0) {
+            return true;
+        }
+        
+        // Items sin receta TAMBIÉN pueden "reciclarse" (serán devueltos al output)
+        return true;
     }
 
     /**
