@@ -1,6 +1,5 @@
 package com.valhyi.recyclertable;
 
-import com.valhyi.recyclertable.block.entity.CapabilityHandler;
 import com.valhyi.recyclertable.init.ModBlocks;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import com.valhyi.recyclertable.init.ModMenuTypes;
@@ -24,9 +23,6 @@ public class RecyclerTable {
 
         // Registrar el evento para la pestaña creativa
         modEventBus.addListener(this::addCreative);
-        
-        // Registrar capacidades para tolvas
-        modEventBus.addListener(CapabilityHandler::registerCapabilities);
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
