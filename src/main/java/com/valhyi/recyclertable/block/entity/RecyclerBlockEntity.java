@@ -27,13 +27,7 @@ import net.neoforged.neoforge.transfer.item.VanillaContainerWrapper;
 import org.jetbrains.annotations.Nullable;
 
 public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
-    private final SimpleContainer container = new SimpleContainer(21) {
-        @Override
-        public void setChanged() {
-            super.setChanged();
-            RecyclerBlockEntity.this.setChanged();
-        }
-    };
+    private final SimpleContainer container = new SimpleContainer(21);
 
     private int processingTicks = 0;
     private static final int PROCESSING_TIME = 6; // Cada 6 ticks se procesa 1 item
@@ -173,6 +167,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
                 
                 // Iniciar procesamiento
                 processingTicks = PROCESSING_TIME;
+                this.setChanged();
                 return;
             }
         }
