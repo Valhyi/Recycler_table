@@ -24,6 +24,7 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.item.VanillaContainerWrapper;
 import net.neoforged.neoforge.transfer.item.WorldlyContainerWrapper;
 import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jetbrains.annotations.Nullable;
@@ -58,8 +59,12 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
      * Slots 0-8: Input Grid (hoppers can insert)
      * Slots 9-11: Processing/Resources (restricted, hoppers cannot access)
      * Slots 12-20: Output Grid (hoppers can extract)
+     * Unsided access exposes the full container for menu/internal consumers.
      */
     public static ResourceHandler<ItemResource> getCapability(RecyclerBlockEntity blockEntity, @Nullable Direction direction) {
+        if (direction == null) {
+            return VanillaContainerWrapper.of(blockEntity.container);
+        }
         return new RestrictedItemHandlerWrapper(blockEntity.container, direction);
     }
 
@@ -67,13 +72,31 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
      * Wrapper backed by a worldly container so NeoForge transfer checks obey slot restrictions.
      */
     private static class RestrictedItemHandlerWrapper extends WorldlyContainerWrapper {
+        @Nullable
+        private final Direction side;
+
         RestrictedItemHandlerWrapper(RecyclerContainer container, @Nullable Direction direction) {
             super(container, direction);
+            this.side = direction;
+        }
+
+        private int toContainerSlot(int index) {
+            if (side == null) {
+                return index;
+            }
+            if (index >= 0 && index <= 8) {
+                return index;
+            }
+            if (index >= 9 && index <= 17) {
+                return index + 3;
+            }
+            return -1;
         }
 
         @Override
         public int insert(int index, ItemResource resource, int amount, TransactionContext transaction) {
-            if (index < 0 || index > 8) {
+            int slot = toContainerSlot(index);
+            if (slot < 0 || slot > 8) {
                 return 0;
             }
             return super.insert(index, resource, amount, transaction);
@@ -81,7 +104,8 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
         @Override
         public int extract(int index, ItemResource resource, int amount, TransactionContext transaction) {
-            if (index < 9 || index > 17) {
+            int slot = toContainerSlot(index);
+            if (slot < 12 || slot > 20) {
                 return 0;
             }
             return super.extract(index, resource, amount, transaction);
@@ -89,7 +113,8 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
         @Override
         public boolean isValid(int index, ItemResource resource) {
-            return index >= 0 && index <= 8 && super.isValid(index, resource);
+            int slot = toContainerSlot(index);
+            return slot >= 0 && slot <= 8 && super.isValid(index, resource);
         }
     }
 
