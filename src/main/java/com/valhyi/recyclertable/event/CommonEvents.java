@@ -8,12 +8,20 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 
+/**
+ * Registers capabilities for hopper and pipe interaction with the Recycler Table
+ */
 @EventBusSubscriber(modid = RecyclerTable.MOD_ID)
 public class CommonEvents {
 
     @SubscribeEvent
     static void registerCapabilities(RegisterCapabilitiesEvent event) {
-        // Registrar capability de Item para que los hoppers puedan interactuar
-        event.registerBlockEntity(Capabilities.Item.BLOCK, ModBlockEntities.RECYCLER_BLOCK_ENTITY.get(), RecyclerBlockEntity::getCapability);
+        // Register Item capability for hopper interaction
+        // This allows hoppers, pipes, and other automation to extract/insert items
+        event.registerBlockEntity(
+            Capabilities.Item.BLOCK,
+            ModBlockEntities.RECYCLER_BLOCK_ENTITY.get(),
+            RecyclerBlockEntity::getCapability
+        );
     }
 }
