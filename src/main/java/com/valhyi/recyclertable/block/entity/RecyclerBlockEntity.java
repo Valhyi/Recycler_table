@@ -81,7 +81,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
         @Override
         public int extract(int index, ItemResource resource, int amount, TransactionContext transaction) {
-            if (index < 12 || index > 20) {
+            if (index < 9 || index > 17) {
                 return 0;
             }
             return super.extract(index, resource, amount, transaction);
@@ -96,7 +96,6 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     private static class RecyclerContainer extends SimpleContainer implements WorldlyContainer {
         private static final int[] ACCESSIBLE_SLOTS = {
             0, 1, 2, 3, 4, 5, 6, 7, 8,
-            9, 10, 11,
             12, 13, 14, 15, 16, 17, 18, 19, 20
         };
 
