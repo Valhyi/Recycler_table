@@ -11,6 +11,7 @@ import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -21,13 +22,14 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.item.WorldlyContainerWrapper;
+import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jetbrains.annotations.Nullable;
 
 public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
-    private final SimpleContainer container = new SimpleContainer(21);
+    private final RecyclerContainer container = new RecyclerContainer();
 
     private int processingTicks = 0;
     private static final int PROCESSING_TIME = 6; // Cada 6 ticks se procesa 1 item
@@ -57,108 +59,69 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
      * Slots 9-11: Processing/Resources (restricted, hoppers cannot access)
      * Slots 12-20: Output Grid (hoppers can extract)
      */
-    public static ResourceHandler<ItemResource> getCapability(RecyclerBlockEntity blockEntity, Direction direction) {
-        return new ItemHandlerAdapter(blockEntity.container);
+    public static ResourceHandler<ItemResource> getCapability(RecyclerBlockEntity blockEntity, @Nullable Direction direction) {
+        return new RestrictedItemHandlerWrapper(blockEntity.container, direction);
     }
 
     /**
-     * Adapter that restricts hopper access to specific slots only
+     * Wrapper backed by a worldly container so NeoForge transfer checks obey slot restrictions.
      */
-    private static class ItemHandlerAdapter implements IItemHandler {
-        private final SimpleContainer container;
-
-        ItemHandlerAdapter(SimpleContainer container) {
-            this.container = container;
+    private static class RestrictedItemHandlerWrapper extends WorldlyContainerWrapper {
+        RestrictedItemHandlerWrapper(RecyclerContainer container, @Nullable Direction direction) {
+            super(container, direction);
         }
 
         @Override
-        public int getSlots() {
-            // Only expose input (0-8) and output (12-20) slots = 18 slots
-            return 18;
+        public int insert(int index, ItemResource resource, int amount, TransactionContext transaction) {
+            if (index < 0 || index > 8) {
+                return 0;
+            }
+            return super.insert(index, resource, amount, transaction);
         }
 
         @Override
-        public ItemStack getStackInSlot(int slot) {
-            // Map virtual slots to actual container slots
-            // Virtual 0-8 -> Container 0-8 (input)
-            // Virtual 9-17 -> Container 12-20 (output)
-            int actualSlot = slot < 9 ? slot : slot + 3;
-            if (actualSlot >= 0 && actualSlot < container.getContainerSize()) {
-                return container.getItem(actualSlot);
+        public int extract(int index, ItemResource resource, int amount, TransactionContext transaction) {
+            if (index < 12 || index > 20) {
+                return 0;
             }
-            return ItemStack.EMPTY;
+            return super.extract(index, resource, amount, transaction);
         }
 
         @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            // Only allow insertion into input slots (virtual 0-8 = actual 0-8)
-            if (slot >= 9) {
-                return stack; // Cannot insert into output slots
-            }
+        public boolean isValid(int index, ItemResource resource) {
+            return index >= 0 && index <= 8 && super.isValid(index, resource);
+        }
+    }
 
-            ItemStack toInsert = stack.copy();
-            int actualSlot = slot;
+    private static class RecyclerContainer extends SimpleContainer implements WorldlyContainer {
+        private static final int[] ACCESSIBLE_SLOTS = {
+            0, 1, 2, 3, 4, 5, 6, 7, 8,
+            9, 10, 11,
+            12, 13, 14, 15, 16, 17, 18, 19, 20
+        };
 
-            // Try to insert into the specified slot
-            ItemStack existing = container.getItem(actualSlot);
-            if (existing.isEmpty()) {
-                if (!simulate) {
-                    ItemStack placed = toInsert.copy();
-                    placed.setCount(Math.min(toInsert.getCount(), placed.getMaxStackSize()));
-                    container.setItem(actualSlot, placed);
-                    toInsert.shrink(placed.getCount());
-                }
-            } else if (ItemStack.isSameItemSameComponents(existing, toInsert)) {
-                int space = existing.getMaxStackSize() - existing.getCount();
-                if (space > 0) {
-                    int transfer = Math.min(space, toInsert.getCount());
-                    if (!simulate) {
-                        existing.grow(transfer);
-                        toInsert.shrink(transfer);
-                    } else {
-                        toInsert.shrink(transfer);
-                    }
-                }
-            }
-
-            return toInsert;
+        RecyclerContainer() {
+            super(21);
         }
 
         @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            // Only allow extraction from output slots (virtual 9-17 = actual 12-20)
-            if (slot < 9) {
-                return ItemStack.EMPTY; // Cannot extract from input slots
-            }
-
-            int actualSlot = slot + 3; // Virtual 9 = Actual 12, Virtual 17 = Actual 20
-            ItemStack existing = container.getItem(actualSlot);
-
-            if (existing.isEmpty() || amount <= 0) {
-                return ItemStack.EMPTY;
-            }
-
-            int canExtract = Math.min(amount, existing.getCount());
-            if (!simulate) {
-                ItemStack extracted = existing.split(canExtract);
-                if (existing.isEmpty()) {
-                    container.setItem(actualSlot, ItemStack.EMPTY);
-                }
-                return extracted;
-            } else {
-                return existing.copy().withCount(canExtract);
-            }
+        public int[] getSlotsForFace(Direction side) {
+            return ACCESSIBLE_SLOTS.clone();
         }
 
         @Override
-        public int getSlotLimit(int slot) {
-            return 64;
+        public boolean canPlaceItem(int slot, ItemStack stack) {
+            return slot >= 0 && slot <= 8;
         }
 
         @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
-            // All input and output slots accept any item
-            return slot >= 0 && slot < getSlots();
+        public boolean canPlaceItemThroughFace(int slot, ItemStack stack, @Nullable Direction direction) {
+            return slot >= 0 && slot <= 8;
+        }
+
+        @Override
+        public boolean canTakeItemThroughFace(int slot, ItemStack stack, Direction direction) {
+            return slot >= 12 && slot <= 20;
         }
     }
 
