@@ -122,9 +122,10 @@ public class RecyclerLogic {
                 // Crear 1 libro por encantamiento
                 for (var enchantmentEntry : enchantments.entrySet()) {
                     ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
-                    ItemEnchantments.Mutable mutableEnchantments = new ItemEnchantments.Mutable(new ItemEnchantments());
-                    mutableEnchantments.set(enchantmentEntry.getKey(), enchantmentEntry.getValue());
-                    enchantedBook.set(DataComponents.ENCHANTMENTS, mutableEnchantments.toImmutable());
+                    // Crear nueva instancia de ItemEnchantments con solo este encantamiento
+                    ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+                    mutable.set(enchantmentEntry.getKey(), enchantmentEntry.getValue());
+                    enchantedBook.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
                     results.add(enchantedBook);
                 }
                 return results;
