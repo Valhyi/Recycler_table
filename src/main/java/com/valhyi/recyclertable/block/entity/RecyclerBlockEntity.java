@@ -7,6 +7,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
@@ -59,22 +60,27 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
      * - Slots 12-20: Output (can extract only)
      */
     public static ResourceHandler<ItemResource> getCapability(RecyclerBlockEntity blockEntity, Direction direction) {
-        return new RestrictedItemHandlerWrapper(blockEntity.container);
+        return new RestrictedRecyclerItemHandler(blockEntity.container);
     }
 
     /**
      * Custom wrapper that restricts hopper interaction based on slot types
+     * Extends VanillaContainerWrapper to provide proper NeoForge integration
      */
-    private static class RestrictedItemHandlerWrapper extends VanillaContainerWrapper {
-        private final SimpleContainer container;
+    private static class RestrictedRecyclerItemHandler extends VanillaContainerWrapper {
+        private final Container container;
 
-        RestrictedItemHandlerWrapper(SimpleContainer container) {
+        RestrictedRecyclerItemHandler(Container container) {
             super(container);
             this.container = container;
         }
 
         @Override
         public ItemStack insertItem(ItemStack stack, boolean simulate) {
+            if (stack.isEmpty()) {
+                return stack;
+            }
+            
             // Only allow insertion in input slots (0-8)
             ItemStack remaining = stack.copy();
             for (int slot = 0; slot < 9; slot++) {
@@ -92,16 +98,23 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
             if (slot >= 9) {
                 return stack; // Return unchanged - insertion blocked
             }
+            
             // Allow insertion only in input slots (0-8)
+            if (slot < 0 || slot > 8) {
+                return stack;
+            }
+            
             return super.insertItem(slot, stack, simulate);
         }
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            // Block extraction from input slots (0-8) and restricted slots (9-11)
             // Only allow extraction from output slots (12-20)
-            if (slot < 12) {
-                return ItemStack.EMPTY; // Block extraction from input and restricted slots
+            if (slot < 12 || slot > 20) {
+                return ItemStack.EMPTY; // Block extraction
             }
+            
             return super.extractItem(slot, amount, simulate);
         }
     }
