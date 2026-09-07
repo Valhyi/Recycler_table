@@ -59,13 +59,13 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
      * - Slots 9-11: Restricted (no hopper interaction)
      * - Slots 12-20: Output (can extract only)
      */
-    public static ResourceHandler<ItemResource> getCapability(RecyclerBlockEntity blockEntity, Direction direction) {
+    public static ResourceHandler<ItemResource> getCapability(RecyclerBlockEntity blockEntity, @Nullable Direction direction) {
         return new RestrictedRecyclerItemHandler(blockEntity.container);
     }
 
     /**
      * Custom wrapper that restricts hopper interaction based on slot types
-     * Extends VanillaContainerWrapper to provide proper NeoForge integration
+     * Uses VanillaContainerWrapper correctly for NeoForge 26.2
      */
     private static class RestrictedRecyclerItemHandler extends VanillaContainerWrapper {
         private final Container container;
@@ -76,46 +76,39 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         }
 
         @Override
-        public ItemStack insertItem(ItemStack stack, boolean simulate) {
-            if (stack.isEmpty()) {
-                return stack;
+        public long insert(ItemResource resource, long maxAmount, net.neoforged.neoforge.transfer.TransferAction action) {
+            if (resource == null || maxAmount <= 0) {
+                return 0;
             }
-            
+
             // Only allow insertion in input slots (0-8)
-            ItemStack remaining = stack.copy();
+            long inserted = 0;
             for (int slot = 0; slot < 9; slot++) {
-                remaining = this.insertItem(slot, remaining, simulate);
-                if (remaining.isEmpty()) {
+                long slotInserted = super.insert(slot, resource, maxAmount - inserted, action);
+                inserted += slotInserted;
+                if (inserted >= maxAmount) {
                     break;
                 }
             }
-            return remaining;
+            return inserted;
         }
 
         @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            // Block insertion in restricted slots (9-11) and output slots (12-20)
-            if (slot >= 9) {
-                return stack; // Return unchanged - insertion blocked
+        public long extract(ItemResource resource, long maxAmount, net.neoforged.neoforge.transfer.TransferAction action) {
+            if (resource == null || maxAmount <= 0) {
+                return 0;
             }
-            
-            // Allow insertion only in input slots (0-8)
-            if (slot < 0 || slot > 8) {
-                return stack;
-            }
-            
-            return super.insertItem(slot, stack, simulate);
-        }
 
-        @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            // Block extraction from input slots (0-8) and restricted slots (9-11)
             // Only allow extraction from output slots (12-20)
-            if (slot < 12 || slot > 20) {
-                return ItemStack.EMPTY; // Block extraction
+            long extracted = 0;
+            for (int slot = 12; slot <= 20; slot++) {
+                long slotExtracted = super.extract(slot, resource, maxAmount - extracted, action);
+                extracted += slotExtracted;
+                if (extracted >= maxAmount) {
+                    break;
+                }
             }
-            
-            return super.extractItem(slot, amount, simulate);
+            return extracted;
         }
     }
 
