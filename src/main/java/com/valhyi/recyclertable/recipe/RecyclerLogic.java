@@ -3,6 +3,7 @@ package com.valhyi.recyclertable.recipe;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
@@ -34,21 +35,9 @@ public class RecyclerLogic {
     }
 
     /**
-     * Obtiene el resultado de una receta (ShapedRecipe o ShapelessRecipe)
+     * Obtiene los ingredientes de CUALQUIER tipo de receta que produzca este item
+     * Soporta: ShapedRecipe, ShapelessRecipe, y otras recetas customizadas
      */
-    private static ItemStack getRecipeResult(Object recipe) {
-        try {
-            if (recipe instanceof ShapedRecipe shapedRecipe) {
-                return shapedRecipe.getResultItem().copy();
-            } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                return shapelessRecipe.getResultItem().copy();
-            }
-        } catch (Exception e) {
-            // Ignorar si falla
-        }
-        return ItemStack.EMPTY;
-    }
-
     public static List<ItemStack> getRecipeIngredients(ItemStack inputStack, Level level) {
         List<ItemStack> ingredients = new ArrayList<>();
 
@@ -56,47 +45,108 @@ public class RecyclerLogic {
             return ingredients;
         }
 
-        var recipeManager = level.getServer().getRecipeManager();
-        
-        // Buscar la receta que produce exactamente este item
-        for (RecipeHolder<?> recipeHolder : recipeManager.getRecipes()) {
-            var recipe = recipeHolder.value();
+        try {
+            var recipeManager = level.getServer().getRecipeManager();
             
-            // Obtener el resultado de la receta
-            ItemStack recipeResult = getRecipeResult(recipe);
-            
-            // Verificar si el resultado coincide con el input (mismo item)
-            if (!recipeResult.isEmpty() && recipeResult.getItem() == inputStack.getItem()) {
-                // Receta encontrada! Extraer ingredientes
-                if (recipe instanceof ShapedRecipe shapedRecipe) {
-                    for (var ingredient : shapedRecipe.getIngredients()) {
-                        if (!ingredient.isEmpty()) {
-                            var firstItem = ingredient.getItems()[0];
-                            if (!firstItem.isEmpty()) {
-                                ItemStack copy = firstItem.copy();
-                                copy.setCount(1);
-                                ingredients.add(copy);
-                            }
-                        }
+            // Buscar la receta que produce exactamente este item
+            for (RecipeHolder<?> recipeHolder : recipeManager.getRecipes()) {
+                var recipe = recipeHolder.value();
+                ItemStack recipeResult = recipe.getResultItem().copy();
+                
+                // Verificar si el resultado coincide con el input (mismo item y componentes)
+                if (!recipeResult.isEmpty() && 
+                    ItemStack.isSameItemSameComponents(recipeResult, inputStack)) {
+                    
+                    // Receta encontrada! Extraer ingredientes según el tipo
+                    List<ItemStack> extractedIngredients = extractIngredients(recipe);
+                    if (!extractedIngredients.isEmpty()) {
+                        return extractedIngredients;
                     }
-                    return ingredients;
-                } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                    for (var ingredient : shapelessRecipe.getIngredients()) {
-                        if (!ingredient.isEmpty()) {
-                            var firstItem = ingredient.getItems()[0];
-                            if (!firstItem.isEmpty()) {
-                                ItemStack copy = firstItem.copy();
-                                copy.setCount(1);
-                                ingredients.add(copy);
-                            }
-                        }
-                    }
-                    return ingredients;
                 }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
         return ingredients;
+    }
+
+    /**
+     * Extrae ingredientes de cualquier tipo de receta
+     * Maneja: ShapedRecipe, ShapelessRecipe, y cualquier otra que tenga getIngredients()
+     */
+    private static List<ItemStack> extractIngredients(Recipe<?> recipe) {
+        List<ItemStack> ingredients = new ArrayList<>();
+
+        try {
+            // Intentar obtener ingredientes de la receta
+            // La mayoría de recetas implementan este método
+            if (recipe instanceof ShapedRecipe shapedRecipe) {
+                for (var ingredient : shapedRecipe.getIngredients()) {
+                    ItemStack extracted = extractFromIngredient(ingredient);
+                    if (!extracted.isEmpty()) {
+                        ingredients.add(extracted);
+                    }
+                }
+                return ingredients;
+            } 
+            else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
+                for (var ingredient : shapelessRecipe.getIngredients()) {
+                    ItemStack extracted = extractFromIngredient(ingredient);
+                    if (!extracted.isEmpty()) {
+                        ingredients.add(extracted);
+                    }
+                }
+                return ingredients;
+            }
+            // Para otros tipos de recetas, intentar acceder directamente a getIngredients()
+            else {
+                try {
+                    var ingredientsMethod = recipe.getClass().getMethod("getIngredients");
+                    @SuppressWarnings("unchecked")
+                    var ingredientsList = (java.util.List<?>) ingredientsMethod.invoke(recipe);
+                    
+                    for (Object ingredientObj : ingredientsList) {
+                        if (ingredientObj instanceof net.minecraft.world.item.crafting.Ingredient ingredient) {
+                            ItemStack extracted = extractFromIngredient(ingredient);
+                            if (!extracted.isEmpty()) {
+                                ingredients.add(extracted);
+                            }
+                        }
+                    }
+                    return ingredients;
+                } catch (Exception e) {
+                    // Si falla, intentar acceso directo a ingredientes
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return ingredients;
+    }
+
+    /**
+     * Extrae un ItemStack de un Ingredient
+     * Un Ingredient puede tener múltiples items, extraemos el primero
+     */
+    private static ItemStack extractFromIngredient(net.minecraft.world.item.crafting.Ingredient ingredient) {
+        if (ingredient.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+
+        try {
+            var items = ingredient.getItems();
+            if (items != null && items.length > 0) {
+                ItemStack copy = items[0].copy();
+                copy.setCount(1);
+                return copy;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return ItemStack.EMPTY;
     }
 
     /**
