@@ -165,24 +165,31 @@ public class RecyclerLogic {
         // CASO 1: Item encantado - Separar en libros individuales
         ItemEnchantments enchantments = itemStack.get(DataComponents.ENCHANTMENTS);
         if (enchantments != null && !enchantments.isEmpty()) {
-            // Gastar 1 botella por cada encantamiento
-            if (emptyBottle.getCount() >= enchantments.size()) {
-                emptyBottle.shrink(enchantments.size());
-                
-                // Crear 1 libro por encantamiento
-                for (var enchantmentEntry : enchantments.entrySet()) {
-                    ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
-                    // Crear nueva instancia de ItemEnchantments con solo este encantamiento
-                    ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-                    mutable.set(enchantmentEntry.getKey(), enchantmentEntry.getValue());
-                    enchantedBook.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
-                    results.add(enchantedBook);
-                }
-                return results;
-            } else {
+            // Contar cuántos encantamientos tiene
+            final int[] enchantmentCount = {0};
+            enchantments.forEach((enchantmentHolder, level_unused) -> {
+                enchantmentCount[0]++;
+            });
+            
+            // Validar que tenga suficientes botellas
+            if (emptyBottle.getCount() < enchantmentCount[0]) {
                 // No hay suficientes botellas - no reciclar
                 return results;
             }
+
+            // Gastar las botellas
+            emptyBottle.shrink(enchantmentCount[0]);
+            
+            // Crear 1 libro por cada encantamiento
+            enchantments.forEach((enchantmentHolder, level_value) -> {
+                ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
+                ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+                mutable.set(enchantmentHolder, level_value);
+                enchantedBook.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
+                results.add(enchantedBook);
+            });
+            
+            return results;
         }
 
         // CASO 2: Item con receta - Retornar ingredientes
