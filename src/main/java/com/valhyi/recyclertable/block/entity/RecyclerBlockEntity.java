@@ -25,6 +25,7 @@ import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.item.VanillaContainerWrapper;
+import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jetbrains.annotations.Nullable;
 
 public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
@@ -60,55 +61,80 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
      * - Slots 12-20: Output (can extract only)
      */
     public static ResourceHandler<ItemResource> getCapability(RecyclerBlockEntity blockEntity, @Nullable Direction direction) {
-        return new RestrictedRecyclerItemHandler(blockEntity.container);
+        return new RestrictedRecyclerItemHandler(VanillaContainerWrapper.of(blockEntity.container));
     }
 
     /**
      * Custom wrapper that restricts hopper interaction based on slot types
-     * Uses VanillaContainerWrapper correctly for NeoForge 26.2
+     * Wraps the vanilla container handler to add slot restrictions
      */
-    private static class RestrictedRecyclerItemHandler extends VanillaContainerWrapper {
-        private final Container container;
+    private static class RestrictedRecyclerItemHandler implements ResourceHandler<ItemResource> {
+        private final ResourceHandler<ItemResource> baseHandler;
 
-        RestrictedRecyclerItemHandler(Container container) {
-            super(container);
-            this.container = container;
+        RestrictedRecyclerItemHandler(ResourceHandler<ItemResource> baseHandler) {
+            this.baseHandler = baseHandler;
         }
 
         @Override
-        public long insert(ItemResource resource, long maxAmount, net.neoforged.neoforge.transfer.TransferAction action) {
-            if (resource == null || maxAmount <= 0) {
-                return 0;
-            }
-
-            // Only allow insertion in input slots (0-8)
-            long inserted = 0;
-            for (int slot = 0; slot < 9; slot++) {
-                long slotInserted = super.insert(slot, resource, maxAmount - inserted, action);
-                inserted += slotInserted;
-                if (inserted >= maxAmount) {
-                    break;
-                }
-            }
-            return inserted;
+        public int size() {
+            // Total accessible slots: 9 input (0-8) + 9 output (12-20) = 18 virtual slots
+            return 18;
         }
 
         @Override
-        public long extract(ItemResource resource, long maxAmount, net.neoforged.neoforge.transfer.TransferAction action) {
-            if (resource == null || maxAmount <= 0) {
-                return 0;
-            }
+        public ItemResource getResource(int index) {
+            int actualSlot = mapVirtualToActualSlot(index);
+            return baseHandler.getResource(actualSlot);
+        }
 
-            // Only allow extraction from output slots (12-20)
-            long extracted = 0;
-            for (int slot = 12; slot <= 20; slot++) {
-                long slotExtracted = super.extract(slot, resource, maxAmount - extracted, action);
-                extracted += slotExtracted;
-                if (extracted >= maxAmount) {
-                    break;
-                }
+        @Override
+        public long getAmountAsLong(int index) {
+            int actualSlot = mapVirtualToActualSlot(index);
+            return baseHandler.getAmountAsLong(actualSlot);
+        }
+
+        @Override
+        public long getCapacityAsLong(int index, ItemResource resource) {
+            int actualSlot = mapVirtualToActualSlot(index);
+            return baseHandler.getCapacityAsLong(actualSlot, resource);
+        }
+
+        @Override
+        public boolean isValid(int index, ItemResource resource) {
+            int actualSlot = mapVirtualToActualSlot(index);
+            return baseHandler.isValid(actualSlot, resource);
+        }
+
+        @Override
+        public int insert(int index, ItemResource resource, int amount, TransactionContext transaction) {
+            // Only allow insertion into input slots (virtual 0-8 = actual 0-8)
+            if (index >= 9) {
+                return 0; // Cannot insert into output slots
             }
-            return extracted;
+            int actualSlot = index; // Virtual 0-8 maps directly to actual 0-8
+            return baseHandler.insert(actualSlot, resource, amount, transaction);
+        }
+
+        @Override
+        public int extract(int index, ItemResource resource, int amount, TransactionContext transaction) {
+            // Only allow extraction from output slots (virtual 9-17 = actual 12-20)
+            if (index < 9) {
+                return 0; // Cannot extract from input slots
+            }
+            int actualSlot = index + 3; // Virtual 9 = Actual 12, Virtual 17 = Actual 20
+            return baseHandler.extract(actualSlot, resource, amount, transaction);
+        }
+
+        /**
+         * Maps virtual slot numbers to actual container slots
+         * Virtual 0-8 -> Actual 0-8 (input)
+         * Virtual 9-17 -> Actual 12-20 (output)
+         */
+        private int mapVirtualToActualSlot(int virtualSlot) {
+            if (virtualSlot < 0 || virtualSlot >= 18) {
+                throw new IndexOutOfBoundsException("Virtual slot " + virtualSlot + " is out of bounds [0, 18)");
+            }
+            return virtualSlot < 9 ? virtualSlot : virtualSlot + 3;
         }
     }
 
