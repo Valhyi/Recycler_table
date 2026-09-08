@@ -11,6 +11,8 @@ import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
 import com.valhyi.recyclertable.mixin.ShapelessRecipeAccessor;
+import net.minecraft.core.Holder;
+import net.minecraft.world.item.enchantment.Enchantment;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
