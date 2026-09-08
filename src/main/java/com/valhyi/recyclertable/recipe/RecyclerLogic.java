@@ -101,7 +101,7 @@ public class RecyclerLogic {
                         if (optionalIngredient.isPresent()) {
                             Ingredient ingredient = optionalIngredient.get();
                             // Usar values() en lugar de items() para acceder a los Holders de items
-                            var firstItem = ingredient.values().findFirst();
+                            var firstItem = ingredient.items().findFirst();
                             if (firstItem.isPresent()) {
                                 ItemStack copy = new ItemStack(firstItem.get().value());
                                 copy.setCount(1);
@@ -118,7 +118,7 @@ public class RecyclerLogic {
                         if (shapelessRecipe instanceof ShapelessRecipeAccessor accessor) {
                             for (Ingredient ingredient : accessor.getIngredients()) {
                                 // Usar values() en lugar de items()
-                                var firstItem = ingredient.values().findFirst();
+                                var firstItem = ingredient.items().findFirst();
                                 if (firstItem.isPresent()) {
                                     ItemStack copy = new ItemStack(firstItem.get().value());
                                     copy.setCount(1);
