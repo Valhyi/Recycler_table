@@ -32,7 +32,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     private final SimpleContainer container = new SimpleContainer(21);
 
     private int processingTicks = 0;
-    private static final int PROCESSING_TIME = 6; // Cada 6 ticks se procesa 1 item
+    private static final int PROCESSING_TIME = 20; // Cada 20 ticks se procesa 1 item
 
     public RecyclerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.RECYCLER_BLOCK_ENTITY.get(), pos, state);
