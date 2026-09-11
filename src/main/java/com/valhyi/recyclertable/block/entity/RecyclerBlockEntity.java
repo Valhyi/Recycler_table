@@ -34,6 +34,49 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     private int processingTicks = 0;
     private static final int PROCESSING_TIME = 60; // Cada 60 ticks se procesa 1 item
 
+    
+    private boolean autoMode = false;
+    private boolean singleShotPending = false;
+
+    private final net.minecraft.world.inventory.ContainerData dataAccess = new net.minecraft.world.inventory.ContainerData() {
+        @Override
+        public int get(int index) {
+            return index == 0 ? (autoMode ? 1 : 0) : 0;
+        }
+
+        @Override
+        public void set(int index, int value) {
+            if (index == 0) {
+                autoMode = value != 0;
+            }
+        }
+
+        @Override
+        public int getCount() {
+            return 1;
+        }
+    };
+
+    public net.minecraft.world.inventory.ContainerData getDataAccess() {
+        return dataAccess;
+    }
+
+    public void triggerSingleShot() {
+        if (processingTicks == 0 && container.getItem(9).isEmpty()) {
+            singleShotPending = true;
+            this.setChanged();
+        }
+    }
+
+    public void toggleAutoMode() {
+        autoMode = !autoMode;
+        this.setChanged();
+    }
+
+    public boolean isAutoMode() {
+        return autoMode;
+    }
+
     public RecyclerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.RECYCLER_BLOCK_ENTITY.get(), pos, state);
     }
@@ -255,6 +298,11 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
             return;
         }
 
+        // Solo buscar nuevo item si Auto está activo o si se presionó Play
+        if (!autoMode && !singleShotPending) {
+            return;
+        }
+
         // Buscar item reciclable en el grid de entrada (slots 0-8)
         for (int i = 0; i < 9; i++) {
             ItemStack inputItem = container.getItem(i);
@@ -290,6 +338,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
                 
                 // Iniciar procesamiento
                 processingTicks = PROCESSING_TIME;
+                singleShotPending = false; // Play solo procesa 1 item y se apaga
                 this.setChanged();
                 return;
             }
@@ -404,6 +453,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         }
         ContainerHelper.saveAllItems(output, items);
         output.putInt("processing_ticks", this.processingTicks);
+        output.putBoolean("auto_mode", this.autoMode);
     }
 
     @Override
@@ -415,5 +465,6 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
             this.container.setItem(i, items.get(i));
         }
         this.processingTicks = input.getIntOr("processing_ticks", 0);
+        this.autoMode = input.getBooleanOr("auto_mode", false);
     }
 }
