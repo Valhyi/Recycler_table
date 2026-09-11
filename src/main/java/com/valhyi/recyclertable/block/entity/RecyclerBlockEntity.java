@@ -152,6 +152,46 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     /**
+     * Mueve botellas de vidrio y libros del grid de entrada (slots 0-8)
+     * a sus espacios restringidos (slot 10 = botellas, slot 11 = libros)
+     * antes de procesar cualquier item.
+     */
+    private void moveRestrictedItemsFromInput() {
+        for (int i = 0; i < 9; i++) {
+            ItemStack inputItem = container.getItem(i);
+            if (inputItem.isEmpty()) continue;
+
+            if (inputItem.is(net.minecraft.world.item.Items.GLASS_BOTTLE)) {
+                ItemStack bottleSlot = container.getItem(10);
+                int space = bottleSlot.isEmpty() ? 64 : (ItemStack.isSameItemSameComponents(bottleSlot, inputItem) ? bottleSlot.getMaxStackSize() - bottleSlot.getCount() : 0);
+                if (space > 0) {
+                    int transfer = Math.min(space, inputItem.getCount());
+                    if (bottleSlot.isEmpty()) {
+                        container.setItem(10, inputItem.copyWithCount(transfer));
+                    } else {
+                        bottleSlot.grow(transfer);
+                    }
+                    inputItem.shrink(transfer);
+                    this.setChanged();
+                }
+            } else if (inputItem.is(net.minecraft.world.item.Items.BOOK)) {
+                ItemStack bookSlot = container.getItem(11);
+                int space = bookSlot.isEmpty() ? 64 : (ItemStack.isSameItemSameComponents(bookSlot, inputItem) ? bookSlot.getMaxStackSize() - bookSlot.getCount() : 0);
+                if (space > 0) {
+                    int transfer = Math.min(space, inputItem.getCount());
+                    if (bookSlot.isEmpty()) {
+                        container.setItem(11, inputItem.copyWithCount(transfer));
+                    } else {
+                        bookSlot.grow(transfer);
+                    }
+                    inputItem.shrink(transfer);
+                    this.setChanged();
+                }
+            }
+        }
+    }
+
+    /**
      * Verifica si hay espacio en el output para colocar todos los items
      */
     private boolean canFitAllResults(java.util.List<ItemStack> results) {
@@ -197,6 +237,9 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         if (level == null || level.isClientSide()) {
             return;
         }
+
+        // Mover botellas y libros del input a los espacios restringidos
+        moveRestrictedItemsFromInput();
 
         // Si está procesando, decrementar contador
         if (processingTicks > 0) {
