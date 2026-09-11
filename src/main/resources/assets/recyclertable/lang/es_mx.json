@@ -3,5 +3,7 @@
   "item.recyclertable.recycler_table": "Mesa Reciclaje",
   "container.recyclertable.recycler_table": "Mesa Reciclaje",
   "gui.recyclertable.config_button": "Preferencias",
-  "gui.recyclertable.config_opening_stub": "Abriendo preferencias de recetas..."
+  "gui.recyclertable.config_opening_stub": "Abriendo preferencias de recetas...",
+  "gui.recyclertable.play_button": "Reciclar un objeto",
+  "gui.recyclertable.auto_button": "Alternar reciclaje automático"
 }
