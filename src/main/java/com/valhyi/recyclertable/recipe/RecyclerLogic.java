@@ -195,20 +195,23 @@ public class RecyclerLogic {
      * Crea un libro con CADA encantamiento por separado
      * Ejemplo: Un item con Reparacion+Fuego+Multidisparo crea 3 libros (uno por cada encantamiento)
      */
-    private static void createSingleEnchantmentBooks(ItemEnchantments sourceEnchantments, List<ItemStack> results, Level level) {
+       private static void createSingleEnchantmentBooks(ItemEnchantments sourceEnchantments, List<ItemStack> results, Level level) {
         if (sourceEnchantments != null && !sourceEnchantments.isEmpty()) {
-            sourceEnchantments.entrySet().forEach(entry -> {
-                Holder<Enchantment> enchantment = entry.getKey();
-                int level_value = entry.getValue();
-    
+            // Iterar sobre cada encantamiento y crear un libro individual
+            for (var entry : sourceEnchantments.entrySet()) {
+                var enchantment = entry.getKey();
+                int level_value = entry.getIntValue();
+
                 ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
-    
+
+                // Crear un ItemEnchantments mutable con solo este encantamiento
                 ItemEnchantments.Mutable mutableEnchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
                 mutableEnchantments.set(enchantment, level_value);
-    
+
+                // Aplicar al libro
                 enchantedBook.set(DataComponents.ENCHANTMENTS, mutableEnchantments.toImmutable());
                 results.add(enchantedBook);
-            });
+            }
         }
     }
 }
