@@ -45,7 +45,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
         // Ajusta estas coordenadas a donde quieras los botones dentro de tu GUI (176x166)
         int buttonX = this.leftPos + 80;
-        int buttonY = this.topPos = this.topPos; // placeholder, ver nota abajo
+         // placeholder, ver nota abajo
         buttonY = this.topPos + 50;
 
         this.addRenderableWidget(new ImageButton(
