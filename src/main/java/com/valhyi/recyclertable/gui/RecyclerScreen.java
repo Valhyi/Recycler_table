@@ -10,7 +10,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.ClientPacketDistributor;
 
 public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
@@ -46,7 +46,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         // Ajusta estas coordenadas a donde quieras los botones dentro de tu GUI (176x166)
         int buttonX = this.leftPos + 80;
          // placeholder, ver nota abajo
-        buttonY = this.topPos + 50;
+        int buttonY = this.topPos + 50;
 
         this.addRenderableWidget(new ImageButton(
                 buttonX, buttonY, 14, 14, PLAY_SPRITES,
@@ -77,13 +77,13 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     private void updateAutoButtonVisibility() {
         boolean active = this.menu.isAutoActive();
-        if (this.autoOffButton != null) this.autoOffButton.setVisible(!active);
-        if (this.autoOnButton != null) this.autoOnButton.setVisible(active);
+            if (this.autoOffButton != null) this.autoOffButton.visible = !active;
+            if (this.autoOnButton != null) this.autoOnButton.visible = active;
     }
 
     private void sendButtonPacket(RecyclerButtonPayload.ButtonType type) {
         if (this.minecraft != null && this.minecraft.player != null) {
-            PacketDistributor.sendToServer(new RecyclerButtonPayload(this.menu.getBlockPos(), type));
+            ClientPacketDistributor.sendToServer(new RecyclerButtonPayload(this.menu.getBlockPos(), type));
         }
     }
 
