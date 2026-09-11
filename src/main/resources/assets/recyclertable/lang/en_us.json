@@ -3,7 +3,7 @@
   "item.recyclertable.recycler_table": "Recycler Table",
   "container.recyclertable.recycler_table": "Recycler Table",
   "gui.recyclertable.config_button": "Preferences",
-  "gui.recyclertable.config_opening_stub": "Opening Recipe Preferences..."
+  "gui.recyclertable.config_opening_stub": "Opening Recipe Preferences...",
   "gui.recyclertable.play_button": "Recycle one item",
   "gui.recyclertable.auto_button": "Toggle auto-recycle"
 }
