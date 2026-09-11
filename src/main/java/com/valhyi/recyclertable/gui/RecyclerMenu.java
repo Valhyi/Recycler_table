@@ -9,6 +9,8 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -16,6 +18,8 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 
 public class RecyclerMenu extends AbstractContainerMenu {
     private final Container container;
+    private final ContainerData data;
+    private final BlockPos blockPos;
 
     // Constantes de slots
     private static final int CONTAINER_SIZE = 21;
@@ -36,20 +40,34 @@ public class RecyclerMenu extends AbstractContainerMenu {
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, BlockPos pos) {
-        this(containerId, playerInventory, getBlockEntity(playerInventory, pos));
+        this(containerId, playerInventory, pos, getBlockEntity(playerInventory, pos));
     }
 
     private static BlockEntity getBlockEntity(Inventory playerInventory, BlockPos pos) {
         return playerInventory.player.level().getBlockEntity(pos);
     }
 
-    public RecyclerMenu(int containerId, Inventory playerInventory, BlockEntity blockEntity) {
-        this(containerId, playerInventory, blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getContainer() : new SimpleContainer(21));
+    private RecyclerMenu(int containerId, Inventory playerInventory, BlockPos pos, BlockEntity blockEntity) {
+        this(containerId, playerInventory, pos, resolveContainer(blockEntity), resolveData(blockEntity));
+    }
+
+    private static Container resolveContainer(BlockEntity blockEntity) {
+        return blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getContainer() : new SimpleContainer(21);
+    }
+
+    private static ContainerData resolveData(BlockEntity blockEntity) {
+        return blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getDataAccess() : new SimpleContainerData(1);
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, Container container) {
+        this(containerId, playerInventory, BlockPos.ZERO, container, new SimpleContainerData(1));
+    }
+
+    public RecyclerMenu(int containerId, Inventory playerInventory, BlockPos pos, Container container, ContainerData data) {
         super(ModMenuTypes.RECYCLER_MENU.get(), containerId);
         this.container = container;
+        this.blockPos = pos;
+        this.data = data;
         checkContainerSize(container, 21);
         container.startOpen(playerInventory.player);
 
@@ -61,13 +79,8 @@ public class RecyclerMenu extends AbstractContainerMenu {
         }
 
         // 2. Zona Central -> Índices 9, 10 y 11
-        // Slot 9: Item en proceso (solo lectura)
         this.addSlot(new RecyclerSlots.ProcessSlot(container, 9, 80, 17));
-
-        // Slot 10: Botella vacía (bloqueado para solo botellas vacías)
         this.addSlot(new RecyclerSlots.RestrictedSlot(container, 10, 71, 35, new ItemStack(Items.GLASS_BOTTLE)));
-
-        // Slot 11: Libro (bloqueado para solo libros)
         this.addSlot(new RecyclerSlots.RestrictedSlot(container, 11, 89, 35, new ItemStack(Items.BOOK)));
 
         // 3. Output Grid (3x3) - Derecha -> Índices 12 al 20
@@ -88,6 +101,16 @@ public class RecyclerMenu extends AbstractContainerMenu {
         for (int k = 0; k < 9; ++k) {
             this.addSlot(new Slot(playerInventory, k, 8 + k * 18, 142));
         }
+
+        this.addDataSlots(data);
+    }
+
+    public BlockPos getBlockPos() {
+        return this.blockPos;
+    }
+
+    public boolean isAutoActive() {
+        return this.data.get(0) == 1;
     }
 
     @Override
@@ -99,26 +122,19 @@ public class RecyclerMenu extends AbstractContainerMenu {
             ItemStack slotStack = slot.getItem();
             itemStack = slotStack.copy();
 
-            // Si es del inventario del jugador o hotbar -> mover al input de la mesa
             if (slotIndex >= PLAYER_INV_START) {
                 if (!this.moveItemStackTo(slotStack, INPUT_SLOTS_START, INPUT_SLOTS_END, false)) {
                     return ItemStack.EMPTY;
                 }
-            }
-            // Si es del output de la mesa -> mover al inventario del jugador
-            else if (slotIndex >= OUTPUT_SLOTS_START && slotIndex < OUTPUT_SLOTS_END) {
+            } else if (slotIndex >= OUTPUT_SLOTS_START && slotIndex < OUTPUT_SLOTS_END) {
                 if (!this.moveItemStackTo(slotStack, PLAYER_INV_START, PLAYER_HOTBAR_END, true)) {
                     return ItemStack.EMPTY;
                 }
-            }
-            // Si es del input de la mesa -> mover al inventario del jugador
-            else if (slotIndex >= INPUT_SLOTS_START && slotIndex < INPUT_SLOTS_END) {
+            } else if (slotIndex >= INPUT_SLOTS_START && slotIndex < INPUT_SLOTS_END) {
                 if (!this.moveItemStackTo(slotStack, PLAYER_INV_START, PLAYER_HOTBAR_END, true)) {
                     return ItemStack.EMPTY;
                 }
-            }
-            // Slots centrales (9, 10, 11) no se pueden mover con shift-click
-            else {
+            } else {
                 return ItemStack.EMPTY;
             }
 
