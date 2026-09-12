@@ -1,84 +1,59 @@
 package com.valhyi.recyclertable.recipe;
 
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.DyeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.DyedItemColor;
+import net.minecraft.world.item.crafting.AbstractCookingRecipe;
+import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
+import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.minecraft.world.item.crafting.SmithingRecipeInput;
+import net.minecraft.world.item.crafting.SmithingTransformRecipe;
+import net.minecraft.world.item.crafting.StonecuttingRecipe;
+import net.minecraft.world.item.crafting.TransmuteRecipe;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
-import com.valhyi.recyclertable.mixin.ShapelessRecipeAccessor;
-import net.minecraft.core.Holder;
-import net.minecraft.world.item.enchantment.Enchantment;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 public class RecyclerLogic {
 
+    // ES: Tipos de horno soportados, en el orden en que se prueban
+    // EN: Supported furnace-like recipe types, in try order
+    private static final RecipeType<?>[] COOKING_TYPES = {
+            RecipeType.SMELTING,
+            RecipeType.BLASTING,
+            RecipeType.SMOKING,
+            RecipeType.CAMPFIRE_COOKING
+    };
+
     public static boolean canRecycle(ItemStack itemStack, Level level) {
-        if (itemStack.isEmpty() || level.isClientSide()) {
-            return false;
-        }
-
-        // Un item puede reciclarse si:
-        // 1. Tiene encantamientos, O
-        // 2. Tiene una receta conocida
-        // NOTA: Items sin receta también pasan (serán devueltos al output)
-        
-        ItemEnchantments enchantments = itemStack.get(DataComponents.ENCHANTMENTS);
-        boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
-        
-        if (isEnchanted) {
-            return true;
-        }
-
-        // Si tiene receta, puede reciclarse
-        if (getRecipeIngredients(itemStack, level).size() > 0) {
-            return true;
-        }
-        
-        // Items sin receta TAMBIÉN pueden "reciclarse" (serán devueltos al output)
-        return true;
+        // ES: Cualquier item no vacío puede pasar por el reciclador; si no se
+        //     encuentra receta, se devuelve intacto en processRecycling().
+        // EN: Any non-empty item can go through the recycler; if no recipe is
+        //     found it's returned unchanged in processRecycling().
+        return !itemStack.isEmpty() && !level.isClientSide();
     }
 
     /**
-     * Obtiene el resultado de una receta (ShapedRecipe o ShapelessRecipe)
+     * ES: Punto de entrada principal. Busca los ingredientes que produjeron
+     * este item probando, en orden de prioridad: tinte exacto -> Stonecutter
+     * -> Crafting (shaped/shapeless/transmute) -> Hornos -> Herrería.
+     * EN: Main entry point. Looks up the ingredients that produced this item,
+     * trying in priority order: exact dye -> Stonecutter -> Crafting
+     * (shaped/shapeless/transmute) -> Furnaces -> Smithing.
      */
-    private static ItemStack getRecipeResult(Object recipe) {
-        try {
-            if (recipe instanceof ShapedRecipe shapedRecipe) {
-                // ShapedRecipe: acceder al field 'result' usando reflexión
-                Field resultField = ShapedRecipe.class.getDeclaredField("result");
-                resultField.setAccessible(true);
-                Object resultObj = resultField.get(shapedRecipe);
-                
-                // resultObj es un ItemStackTemplate, llamar create()
-                if (resultObj != null) {
-                    return (ItemStack) resultObj.getClass().getMethod("create").invoke(resultObj);
-                }
-            } else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                // ShapelessRecipe: acceder al field 'result'
-                Field resultField = ShapelessRecipe.class.getDeclaredField("result");
-                resultField.setAccessible(true);
-                Object resultObj = resultField.get(shapelessRecipe);
-                
-                // resultObj es un ItemStackTemplate, llamar create()
-                if (resultObj != null) {
-                    return (ItemStack) resultObj.getClass().getMethod("create").invoke(resultObj);
-                }
-            }
-        } catch (Exception e) {
-            // Ignorar si falla
-        }
-        return ItemStack.EMPTY;
-    }
-
     public static List<ItemStack> getRecipeIngredients(ItemStack inputStack, Level level) {
         List<ItemStack> ingredients = new ArrayList<>();
 
@@ -86,132 +61,168 @@ public class RecyclerLogic {
             return ingredients;
         }
 
-        var recipeManager = level.getServer().getRecipeManager();
-        
-        // Buscar la receta que produce exactamente este item
-        for (RecipeHolder<?> recipeHolder : recipeManager.getRecipes()) {
-            var recipe = recipeHolder.value();
-            
-            // Obtener el resultado de la receta
-            ItemStack recipeResult = getRecipeResult(recipe);
-            
-            // Verificar si el resultado coincide con el input (mismo item)
-            if (!recipeResult.isEmpty() && recipeResult.getItem() == inputStack.getItem()) {
-                // Receta encontrada! Extraer ingredientes
-                if (recipe instanceof ShapedRecipe shapedRecipe) {
-                    for (Optional<Ingredient> optionalIngredient : shapedRecipe.getIngredients()) {
-                        if (optionalIngredient.isPresent()) {
-                            Ingredient ingredient = optionalIngredient.get();
-                            // Usar values() en lugar de items() para acceder a los Holders de items
-                            var firstItem = ingredient.items().findFirst();
-                            if (firstItem.isPresent()) {
-                                ItemStack copy = new ItemStack(firstItem.get().value());
-                                copy.setCount(1);
-                                ingredients.add(copy);
-                            }
-                        }
-                    }
-                    return ingredients;
-                }
-                // Verificar que sea una receta de Shapeless
-                else if (recipe instanceof ShapelessRecipe shapelessRecipe) {
-                    // Usar el Mixin accessor para acceder a ingredientes privados
-                    try {
-                        if (shapelessRecipe instanceof ShapelessRecipeAccessor accessor) {
-                            for (Ingredient ingredient : accessor.getIngredients()) {
-                                // Usar values() en lugar de items()
-                                var firstItem = ingredient.items().findFirst();
-                                if (firstItem.isPresent()) {
-                                    ItemStack copy = new ItemStack(firstItem.get().value());
-                                    copy.setCount(1);
-                                    ingredients.add(copy);
-                                }
-                            }
-                            return ingredients;
-                        }
-                    } catch (Exception e) {
-                        // Si falla, continuar a siguiente receta
-                    }
-                }
+        RecipeManager recipeManager = level.getServer().getRecipeManager();
+        HolderLookup.Provider registries = level.registryAccess();
+
+        // ES: Caso especial - item teñido (cuero, arnés, etc.)
+        // EN: Special case - dyed item (leather, harness, etc.)
+        DyedItemColor dyedColor = inputStack.get(DataComponents.DYED_COLOR);
+        if (dyedColor != null) {
+            DyeColor exactDye = matchExactDyeColor(dyedColor.rgb());
+            if (exactDye == null) {
+                // ES: Mezcla de varios tintes o re-teñido: no reconstruible, no se recicla
+                // EN: Mixed/re-dyed color: not reconstructible, don't recycle
+                return ingredients;
             }
+
+            ingredients.add(new ItemStack(DyeItem.byColor(exactDye)));
+
+            ItemStack undyedCopy = inputStack.copyWithCount(1);
+            undyedCopy.remove(DataComponents.DYED_COLOR);
+            ingredients.addAll(findByPriority(undyedCopy, recipeManager, registries));
+            return ingredients;
         }
-        
-        return ingredients;
+
+        return findByPriority(inputStack, recipeManager, registries);
     }
 
-    public static List<ItemStack> processRecycling(ItemStack inputStack, ItemStack emptyBottle, ItemStack book, Level level) {
-        List<ItemStack> results = new ArrayList<>();
+    private static List<ItemStack> findByPriority(ItemStack target, RecipeManager recipeManager, HolderLookup.Provider registries) {
+        List<ItemStack> found;
 
-        if (inputStack.isEmpty() || level == null) {
-            return results;
-        }
+        found = findInStonecutter(target, recipeManager, registries);
+        if (found != null) return found;
 
-        // Obtener encantamientos - Minecraft 26.2
-        ItemEnchantments enchantments = inputStack.get(DataComponents.ENCHANTMENTS);
-        boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
-        boolean hasEmptyBottle = !emptyBottle.isEmpty();
-        boolean hasBook = !book.isEmpty();
+        found = findInCrafting(target, recipeManager, registries);
+        if (found != null) return found;
 
-        // Obtener ingredientes de la receta (si existe)
-        List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
-        
-        // Procesar según el tipo de item
-        if (isEnchanted) {
-            // Item ENCANTADO
-            // Validar que tenga los recursos necesarios (botella y libro)
-            if (!hasEmptyBottle || !hasBook) {
-                // No puede procesar sin recursos, devolver item original
-                results.add(inputStack.copy());
-                return results;
-            }
+        found = findInCooking(target, recipeManager, registries);
+        if (found != null) return found;
 
-            // Si tiene receta, devolver ingredientes + libros de encantamientos individuales + botella XP
-            if (!ingredients.isEmpty()) {
-                results.addAll(ingredients);
-            }
-            // Si NO tiene receta, solo devolver libros de encantamientos + botella XP (sin ingredientes)
+        found = findInSmithing(target, recipeManager, registries);
+        if (found != null) return found;
 
-            // Crear libro con cada encantamiento separadamente (uno por cada encantamiento)
-            createSingleEnchantmentBooks(enchantments, results, level);
-
-            // Crear botella de XP
-            ItemStack xpBottle = new ItemStack(Items.EXPERIENCE_BOTTLE);
-            results.add(xpBottle);
-        } else {
-            // Item SIN ENCANTAMIENTOS
-            if (!ingredients.isEmpty()) {
-                // Tiene receta → devolver ingredientes
-                results.addAll(ingredients);
-            } else {
-                // Sin receta → devolver item original
-                results.add(inputStack.copy());
-            }
-        }
-
-        return results;
+        return new ArrayList<>();
     }
 
     /**
-     * Crea un libro con CADA encantamiento por separado
-     * Ejemplo: Un item con Reparacion+Fuego+Multidisparo crea 3 libros (uno por cada encantamiento)
+     * ES: Devuelve el DyeColor cuyo color de textura coincide EXACTAMENTE con
+     * el RGB dado, o null si es una mezcla que no corresponde a un solo tinte.
+     * EN: Returns the DyeColor whose texture color EXACTLY matches the given
+     * RGB, or null if it's a mix that doesn't match a single dye.
      */
-       private static void createSingleEnchantmentBooks(ItemEnchantments sourceEnchantments, List<ItemStack> results, Level level) {
-        if (sourceEnchantments != null && !sourceEnchantments.isEmpty()) {
-            // Iterar sobre cada encantamiento y crear un libro individual
-            for (var entry : sourceEnchantments.entrySet()) {
-                var enchantment = entry.getKey();
-                int level_value = entry.getIntValue();
-
-                ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
-
-                // Crear un ItemEnchantments mutable con solo este encantamiento
-                ItemEnchantments.Mutable mutableEnchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-                mutableEnchantments.set(enchantment, level_value);
-
-                // Aplicar al libro
-                enchantedBook.set(DataComponents.ENCHANTMENTS, mutableEnchantments.toImmutable());
-                results.add(enchantedBook);
+    private static DyeColor matchExactDyeColor(int rgb) {
+        for (DyeColor dye : DyeColor.values()) {
+            if (dye.getTextureDiffuseColor() == rgb) {
+                return dye;
             }
         }
+        return null;
     }
-}
+
+    private static List<ItemStack> sampleFrom(List<Ingredient> ingredients) {
+        List<ItemStack> samples = new ArrayList<>();
+        for (Ingredient ingredient : ingredients) {
+            var first = ingredient.items().findFirst();
+            samples.add(first.isPresent() ? new ItemStack(first.get().value()) : ItemStack.EMPTY);
+        }
+        return samples;
+    }
+
+    // ================= STONECUTTER =================
+    private static List<ItemStack> findInStonecutter(ItemStack target, RecipeManager recipeManager, HolderLookup.Provider registries) {
+        for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.STONECUTTING)) {
+            Recipe<?> recipe = holder.value();
+            if (!(recipe instanceof StonecuttingRecipe stonecuttingRecipe)) continue;
+
+            List<Ingredient> recipeIngredients = stonecuttingRecipe.placementInfo().ingredients();
+            if (recipeIngredients.isEmpty()) continue;
+
+            List<ItemStack> samples = sampleFrom(recipeIngredients);
+            if (samples.get(0).isEmpty()) continue;
+
+            ItemStack output = stonecuttingRecipe.assemble(new SingleRecipeInput(samples.get(0)), registries);
+            if (!output.isEmpty() && output.getItem() == target.getItem()) {
+                List<ItemStack> result = new ArrayList<>();
+                ItemStack copy = samples.get(0).copy();
+                copy.setCount(1);
+                result.add(copy);
+                return result;
+            }
+        }
+        return null;
+    }
+
+    // ================= CRAFTING (shaped / shapeless / transmute, cubre 2x2 y 3x3) =================
+    private static List<ItemStack> findInCrafting(ItemStack target, RecipeManager recipeManager, HolderLookup.Provider registries) {
+        for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
+            Recipe<?> recipe = holder.value();
+
+            // ES: Solo shaped/shapeless/transmute tienen un resultado fijo reconstruible.
+            //     Se excluyen a propósito las recetas "special" (repairitem, firework,
+            //     bookcloning, decorated_pot, etc.) y crafting_dye: su resultado depende
+            //     de datos reales del input, no de una muestra genérica.
+            // EN: Only shaped/shapeless/transmute have a fixed, reconstructible result.
+            //     "Special" recipes and crafting_dye are intentionally excluded: their
+            //     result depends on real input data, not a generic sample.
+            if (!(recipe instanceof ShapedRecipe) && !(recipe instanceof ShapelessRecipe) && !(recipe instanceof TransmuteRecipe)) {
+                continue;
+            }
+
+            List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
+            if (recipeIngredients.isEmpty()) continue;
+
+            List<ItemStack> samples = sampleFrom(recipeIngredients);
+            if (samples.stream().anyMatch(ItemStack::isEmpty)) continue;
+
+            CraftingInput input = CraftingInput.of(samples.size(), 1, samples);
+
+            ItemStack output;
+            if (recipe instanceof ShapedRecipe shaped) {
+                output = shaped.assemble(input, registries);
+            } else if (recipe instanceof ShapelessRecipe shapeless) {
+                output = shapeless.assemble(input, registries);
+            } else {
+                output = ((TransmuteRecipe) recipe).assemble(input, registries);
+            }
+
+            if (!output.isEmpty() && output.getItem() == target.getItem()) {
+                List<ItemStack> result = new ArrayList<>();
+                for (ItemStack sample : samples) {
+                    ItemStack copy = sample.copy();
+                    copy.setCount(1);
+                    result.add(copy);
+                }
+                return result;
+            }
+        }
+        return null;
+    }
+
+    // ================= HORNOS (smelting / blasting / smoking / campfire) =================
+    private static List<ItemStack> findInCooking(ItemStack target, RecipeManager recipeManager, HolderLookup.Provider registries) {
+        for (RecipeType<?> type : COOKING_TYPES) {
+            for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(type)) {
+                Recipe<?> recipe = holder.value();
+                if (!(recipe instanceof AbstractCookingRecipe cookingRecipe)) continue;
+
+                List<Ingredient> recipeIngredients = cookingRecipe.placementInfo().ingredients();
+                if (recipeIngredients.isEmpty()) continue;
+
+                List<ItemStack> samples = sampleFrom(recipeIngredients);
+                if (samples.get(0).isEmpty()) continue;
+
+                ItemStack output = cookingRecipe.assemble(new SingleRecipeInput(samples.get(0)), registries);
+                if (!output.isEmpty() && output.getItem() == target.getItem()) {
+                    List<ItemStack> result = new ArrayList<>();
+                    ItemStack copy = samples.get(0).copy();
+                    copy.setCount(1);
+                    result.add(copy);
+                    return result;
+                }
+            }
+        }
+        return null;
+    }
+
+    // ================= MESA DE HERRERÍA (solo smithing_transform) =================
+    private static
