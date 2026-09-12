@@ -10,7 +10,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
-import net.neoforged.neoforge.network.ClientPacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
