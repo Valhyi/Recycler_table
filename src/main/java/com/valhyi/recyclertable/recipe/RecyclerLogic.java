@@ -1,9 +1,13 @@
 package com.valhyi.recyclertable.recipe;
 
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.component.DyedItemColor;
 import net.minecraft.world.item.crafting.AbstractCookingRecipe;
 import net.minecraft.world.item.crafting.CraftingInput;
@@ -53,7 +57,10 @@ public class RecyclerLogic {
                 return ingredients;
             }
 
-            ingredients.add(dyeItemStack(exactDye));
+            ItemStack dyeStack = dyeItemStack(exactDye, level);
+            if (!dyeStack.isEmpty()) {
+                ingredients.add(dyeStack);
+            }
 
             ItemStack undyedCopy = inputStack.copyWithCount(1);
             undyedCopy.remove(DataComponents.DYED_COLOR);
@@ -95,27 +102,20 @@ public class RecyclerLogic {
      * ES: Devuelve el ItemStack del tinte vanilla correspondiente a un DyeColor.
      * EN: Returns the vanilla dye ItemStack for a given DyeColor.
      */
-    private static ItemStack dyeItemStack(DyeColor color) {
-        return switch (color) {
-            case WHITE -> new ItemStack(Items.WHITE_DYE);
-            case ORANGE -> new ItemStack(Items.ORANGE_DYE);
-            case MAGENTA -> new ItemStack(Items.MAGENTA_DYE);
-            case LIGHT_BLUE -> new ItemStack(Items.LIGHT_BLUE_DYE);
-            case YELLOW -> new ItemStack(Items.YELLOW_DYE);
-            case LIME -> new ItemStack(Items.LIME_DYE);
-            case PINK -> new ItemStack(Items.PINK_DYE);
-            case GRAY -> new ItemStack(Items.GRAY_DYE);
-            case LIGHT_GRAY -> new ItemStack(Items.LIGHT_GRAY_DYE);
-            case CYAN -> new ItemStack(Items.CYAN_DYE);
-            case PURPLE -> new ItemStack(Items.PURPLE_DYE);
-            case BLUE -> new ItemStack(Items.BLUE_DYE);
-            case BROWN -> new ItemStack(Items.BROWN_DYE);
-            case GREEN -> new ItemStack(Items.GREEN_DYE);
-            case RED -> new ItemStack(Items.RED_DYE);
-            case BLACK -> new ItemStack(Items.BLACK_DYE);
-        };
+    /**
+     * ES: Busca el ItemStack del tinte vanilla correspondiente a un DyeColor,
+     * por su ID de registro (más estable que una constante de Items).
+     * EN: Looks up the vanilla dye ItemStack for a DyeColor by registry id
+     * (more stable than an Items constant).
+     */
+    private static ItemStack dyeItemStack(DyeColor color, Level level) {
+        Identifier id = Identifier.fromNamespaceAndPath("minecraft", color.getSerializedName() + "_dye");
+        ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, id);
+        return level.registryAccess().lookupOrThrow(Registries.ITEM)
+                .get(key)
+                .map(holder -> new ItemStack(holder.value()))
+                .orElse(ItemStack.EMPTY);
     }
-
     private static List<ItemStack> sampleFrom(List<Ingredient> ingredients) {
         List<ItemStack> samples = new ArrayList<>();
         for (Ingredient ingredient : ingredients) {
