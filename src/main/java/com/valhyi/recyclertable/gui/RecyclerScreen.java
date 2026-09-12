@@ -21,6 +21,11 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             RecyclerTable.resLoc("widget/play_button_highlighted")
     );
 
+    private static final WidgetSprites PLAY_ACTIVE_SPRITES = new WidgetSprites(
+            RecyclerTable.resLoc("widget/play_button_highlighted"),
+            RecyclerTable.resLoc("widget/play_button_highlighted")
+    );
+
     private static final WidgetSprites AUTO_OFF_SPRITES = new WidgetSprites(
             RecyclerTable.resLoc("widget/auto_button"),
             RecyclerTable.resLoc("widget/auto_button_highlighted")
@@ -31,6 +36,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             RecyclerTable.resLoc("widget/auto_button_active_highlighted")
     );
 
+    private ImageButton playIdleButton;
+    private ImageButton playActiveButton;
     private ImageButton autoOffButton;
     private ImageButton autoOnButton;
 
@@ -43,16 +50,19 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         super.init();
         this.titleLabelX = this.imageWidth / 2 - this.font.width(this.title) / 2;
 
-        // Ajusta estas coordenadas a donde quieras los botones dentro de tu GUI (176x166)
-        // Fila central-inferior (y=53 local), justo debajo de los slots de botella/libro,
-        // en la columna central que queda vacía — centrados y con separación
         int playX = this.leftPos + 65;
         int autoX = this.leftPos + 97;
         int buttonY = this.topPos + 55;
 
-        this.addRenderableWidget(new ImageButton(
+        this.playIdleButton = this.addRenderableWidget(new ImageButton(
                 playX, buttonY, 14, 14, PLAY_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.PLAY),
+                Component.translatable("gui.recyclertable.play_button")
+        ));
+
+        this.playActiveButton = this.addRenderableWidget(new ImageButton(
+                playX, buttonY, 14, 14, PLAY_ACTIVE_SPRITES,
+                button -> {},
                 Component.translatable("gui.recyclertable.play_button")
         ));
 
@@ -68,19 +78,23 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
-        updateAutoButtonVisibility();
+        updateButtonStates();
     }
 
     @Override
     public void containerTick() {
         super.containerTick();
-        updateAutoButtonVisibility();
+        updateButtonStates();
     }
 
-    private void updateAutoButtonVisibility() {
-        boolean active = this.menu.isAutoActive();
-            if (this.autoOffButton != null) this.autoOffButton.visible = !active;
-            if (this.autoOnButton != null) this.autoOnButton.visible = active;
+    private void updateButtonStates() {
+        boolean autoActive = this.menu.isAutoActive();
+        boolean processing = this.menu.isProcessing();
+
+        if (this.playIdleButton != null) this.playIdleButton.visible = !processing;
+        if (this.playActiveButton != null) this.playActiveButton.visible = processing;
+        if (this.autoOffButton != null) this.autoOffButton.visible = !autoActive;
+        if (this.autoOnButton != null) this.autoOnButton.visible = autoActive;
     }
 
     private void sendButtonPacket(RecyclerButtonPayload.ButtonType type) {

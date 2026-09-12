@@ -56,11 +56,11 @@ public class RecyclerMenu extends AbstractContainerMenu {
     }
 
     private static ContainerData resolveData(BlockEntity blockEntity) {
-        return blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getDataAccess() : new SimpleContainerData(1);
+        return blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getDataAccess() : new SimpleContainerData(2);
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, Container container) {
-        this(containerId, playerInventory, BlockPos.ZERO, container, new SimpleContainerData(1));
+        this(containerId, playerInventory, BlockPos.ZERO, container, new SimpleContainerData(2));
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, BlockPos pos, Container container, ContainerData data) {
@@ -111,6 +111,10 @@ public class RecyclerMenu extends AbstractContainerMenu {
 
     public boolean isAutoActive() {
         return this.data.get(0) == 1;
+    }
+
+    public boolean isProcessing() {
+        return this.data.get(1) == 1;
     }
 
     @Override

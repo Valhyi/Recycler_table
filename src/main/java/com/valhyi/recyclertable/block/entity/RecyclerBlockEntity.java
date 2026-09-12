@@ -41,7 +41,11 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     private final net.minecraft.world.inventory.ContainerData dataAccess = new net.minecraft.world.inventory.ContainerData() {
         @Override
         public int get(int index) {
-            return index == 0 ? (autoMode ? 1 : 0) : 0;
+            return switch (index) {
+                case 0 -> autoMode ? 1 : 0;
+                case 1 -> (processingTicks > 0 || singleShotPending) ? 1 : 0;
+                default -> 0;
+            };
         }
 
         @Override
@@ -53,7 +57,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
         @Override
         public int getCount() {
-            return 1;
+            return 2;
         }
     };
 
@@ -89,7 +93,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     @Nullable
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
-        return new RecyclerMenu(containerId, playerInventory, this.container);
+        return new RecyclerMenu(containerId, playerInventory, this.getBlockPos(), this.container, this.dataAccess);
     }
 
     public SimpleContainer getContainer() {
