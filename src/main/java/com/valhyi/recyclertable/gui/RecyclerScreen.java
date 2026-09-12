@@ -44,24 +44,26 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         this.titleLabelX = this.imageWidth / 2 - this.font.width(this.title) / 2;
 
         // Ajusta estas coordenadas a donde quieras los botones dentro de tu GUI (176x166)
-        int buttonX = this.leftPos + 80;
-         // placeholder, ver nota abajo
-        int buttonY = this.topPos + 50;
+        // Fila central-inferior (y=53 local), justo debajo de los slots de botella/libro,
+        // en la columna central que queda vacía — centrados y con separación
+        int playX = this.leftPos + 65;
+        int autoX = this.leftPos + 97;
+        int buttonY = this.topPos + 55;
 
         this.addRenderableWidget(new ImageButton(
-                buttonX, buttonY, 14, 14, PLAY_SPRITES,
+                playX, buttonY, 14, 14, PLAY_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.PLAY),
                 Component.translatable("gui.recyclertable.play_button")
         ));
 
         this.autoOffButton = this.addRenderableWidget(new ImageButton(
-                buttonX + 18, buttonY, 14, 14, AUTO_OFF_SPRITES,
+                autoX, buttonY, 14, 14, AUTO_OFF_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.AUTO),
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
         this.autoOnButton = this.addRenderableWidget(new ImageButton(
-                buttonX + 18, buttonY, 14, 14, AUTO_ON_SPRITES,
+                autoX, buttonY, 14, 14, AUTO_ON_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.AUTO),
                 Component.translatable("gui.recyclertable.auto_button")
         ));
