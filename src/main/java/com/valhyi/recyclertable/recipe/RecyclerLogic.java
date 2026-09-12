@@ -225,4 +225,92 @@ public class RecyclerLogic {
     }
 
     // ================= MESA DE HERRERÍA (solo smithing_transform) =================
-    private static
+    private static List<ItemStack> findInSmithing(ItemStack target, RecipeManager recipeManager, HolderLookup.Provider registries) {
+        for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.SMITHING)) {
+            Recipe<?> recipe = holder.value();
+            // ES: smithing_trim se omite a propósito: no tiene resultado fijo
+            //     (aplica el patrón sobre los componentes del item base).
+            // EN: smithing_trim intentionally skipped: it has no fixed result
+            //     (it applies the pattern onto the base item's components).
+            if (!(recipe instanceof SmithingTransformRecipe smithingRecipe)) continue;
+
+            List<Ingredient> recipeIngredients = smithingRecipe.placementInfo().ingredients();
+            if (recipeIngredients.isEmpty()) continue;
+
+            List<ItemStack> samples = sampleFrom(recipeIngredients);
+            ItemStack template = samples.size() > 0 ? samples.get(0) : ItemStack.EMPTY;
+            ItemStack base = samples.size() > 1 ? samples.get(1) : ItemStack.EMPTY;
+            ItemStack addition = samples.size() > 2 ? samples.get(2) : ItemStack.EMPTY;
+            if (base.isEmpty()) continue;
+
+            ItemStack output = smithingRecipe.assemble(new SmithingRecipeInput(template, base, addition), registries);
+            if (!output.isEmpty() && output.getItem() == target.getItem()) {
+                List<ItemStack> result = new ArrayList<>();
+                for (ItemStack sample : samples) {
+                    if (sample.isEmpty()) continue;
+                    ItemStack copy = sample.copy();
+                    copy.setCount(1);
+                    result.add(copy);
+                }
+                return result;
+            }
+        }
+        return null;
+    }
+
+    public static List<ItemStack> processRecycling(ItemStack inputStack, ItemStack emptyBottle, ItemStack book, Level level) {
+        List<ItemStack> results = new ArrayList<>();
+
+        if (inputStack.isEmpty() || level == null) {
+            return results;
+        }
+
+        ItemEnchantments enchantments = inputStack.get(DataComponents.ENCHANTMENTS);
+        boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
+        boolean hasEmptyBottle = !emptyBottle.isEmpty();
+        boolean hasBook = !book.isEmpty();
+
+        List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
+
+        if (isEnchanted) {
+            if (!hasEmptyBottle || !hasBook) {
+                results.add(inputStack.copy());
+                return results;
+            }
+
+            if (!ingredients.isEmpty()) {
+                results.addAll(ingredients);
+            }
+
+            createSingleEnchantmentBooks(enchantments, results, level);
+
+            ItemStack xpBottle = new ItemStack(Items.EXPERIENCE_BOTTLE);
+            results.add(xpBottle);
+        } else {
+            if (!ingredients.isEmpty()) {
+                results.addAll(ingredients);
+            } else {
+                results.add(inputStack.copy());
+            }
+        }
+
+        return results;
+    }
+
+    private static void createSingleEnchantmentBooks(ItemEnchantments sourceEnchantments, List<ItemStack> results, Level level) {
+        if (sourceEnchantments != null && !sourceEnchantments.isEmpty()) {
+            for (var entry : sourceEnchantments.entrySet()) {
+                var enchantment = entry.getKey();
+                int level_value = entry.getIntValue();
+
+                ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
+
+                ItemEnchantments.Mutable mutableEnchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+                mutableEnchantments.set(enchantment, level_value);
+
+                enchantedBook.set(DataComponents.ENCHANTMENTS, mutableEnchantments.toImmutable());
+                results.add(enchantedBook);
+            }
+        }
+    }
+}
