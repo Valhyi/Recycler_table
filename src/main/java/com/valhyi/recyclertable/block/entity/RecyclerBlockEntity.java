@@ -326,7 +326,10 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
                 // VERIFICAR SI CABE ANTES DE CONSUMIR EL ITEM
                 if (!canFitAllResults(results)) {
-                    // No hay espacio, NO hacer nada (pausa automática)
+                    // No hay espacio: detener Auto (no debe reanudarse solo)
+                    autoMode = false;
+                    singleShotPending = false;
+                    this.setChanged();
                     return;
                 }
 
@@ -342,6 +345,13 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
                 this.setChanged();
                 return;
             }
+        }
+
+        // No se encontró ningún item reciclable en el input: detener Auto y Play
+        if (autoMode || singleShotPending) {
+            autoMode = false;
+            singleShotPending = false;
+            this.setChanged();
         }
     }
 
