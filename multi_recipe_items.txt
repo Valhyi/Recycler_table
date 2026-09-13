@@ -254,3 +254,46 @@ C. Para problema 3: Simular el mezclado de tintes en lugar de comparacion exacta
 
 D. Para gemas sin raw (diamond, emerald): Si no hay receta de horno con raw_*,
    y la unica opcion es el bloque (crafting), devolver el item original al output.
+
+
+
+creo que llego la hora de explicar todo lo que falta al mod
+el slot de proceso puede stackear items y para que el item pueda ser procesado no solo se 
+haran los procesos de comprobacion habituales ahora se revisara la cantidad de items que devuelve 
+la receta original (como la receta de palos) con 2 planks haces 4 palos asique para obtener 2 planks tiene 
+que gastar 4 palos del slot de proceso si son menos y en el input no hay palos, los palos al no ser suficientes
+van al output y pues asi funcionaria pero no se que problemas tendria mi idea
+
+ademas al tener completamente listo el tema de recetas planeo tener un boton que sea para configurar/visualizar los 
+tags de recetas y recetas especiales (ej mossy_cobblestone, mossy_stone_bricks, que tienen mas de una receta con 
+diferentes items) 
+
+solucionado con mi idea de arriba:
+
+sugar
+paper
+bone_meal
+
+permitidos para uncraft:
+
+BLOQUES DE ALMACENAMIENTO 
+VIDRIO / MATERIALES
+
+stonecutter priorizado
+chiseled_stone_bricks 
+
+ARMADURA DE CUERO reciclar solo si esta sin tinte se puede hacer el uncraft de 
+los encantamientos cuando esta tintado pero no se daran items si esta tintado
+
+trabajo para tags
+
+mossy_cobblestone
+mossy_stone_bricks
+
+blacklist:
+
+METALES (lingotes) 
+GEMAS / MINERALES 
+NUCLEOS / NUGGETS
+COMIDA
+PIEDRA / COBBLESTONE
