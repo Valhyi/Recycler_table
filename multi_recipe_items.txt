@@ -1,0 +1,256 @@
+================================================================================
+ITEMS CON MULTIPLES RECETAS (output = mismo item, desde distintos ingredientes)
+================================================================================
+Formato: ITEM -> [receta1] | [receta2] | ...
+Marca *** cuando el reciclaje actual probablemente elige la receta equivocada
+
+================================================================================
+METALES (lingotes)
+================================================================================
+
+iron_ingot -> [smelting: raw_iron] | [smelting: iron_ore] | [smelting: deepslate_iron_ore] | [blasting: raw_iron] | [blasting: iron_ore] | [blasting: deepslate_iron_ore] | [crafting: 9 iron_nuggets -> 1 iron_ingot] | [crafting: 1 iron_block -> 9 iron_ingots] | [smelting: iron_sword/pickaxe/axe/etc (varias herramientas y armadura)]
+  *** PROBLEMA: iron_ore y deepslate_iron_ore pueden salir antes que raw_iron
+  *** PROBLEMA: crafting 1 iron_block -> 9 iron_ingots coincide con output.getItem() == iron_ingot, devolviendo iron_block como ingrediente (deberia dar 9, no 1)
+  IDEAL: raw_iron (es el "bruto" que el usuario quiere)
+
+gold_ingot -> [smelting: raw_gold] | [smelting: gold_ore] | [smelting: deepslate_gold_ore] | [blasting: raw_gold] | [blasting: gold_ore] | [blasting: deepslate_gold_ore] | [crafting: 9 gold_nuggets -> 1 gold_ingot] | [crafting: 1 gold_block -> 9 gold_ingots] | [smelting: gold_tools/armor]
+  *** MISMO PROBLEMA que iron_ingot
+
+copper_ingot -> [smelting: raw_copper] | [smelting: copper_ore] | [smelting: deepslate_copper_ore] | [blasting: raw_copper] | [blasting: copper_ore] | [blasting: deepslate_copper_ore] | [crafting: 1 copper_block -> 9 copper_ingots]
+  *** MISMO PROBLEMA
+
+netherite_ingot -> [crafting: 4 netherite_scrap + 4 gold_ingots -> 1 netherite_ingot] | [crafting: 1 netherite_block -> 9 netherite_ingots]
+  *** PROBLEMA: crafting 1 netherite_block -> 9 netherite_ingots coincide, devolviendo netherite_block
+
+================================================================================
+GEMAS / MINERALES
+================================================================================
+
+diamond -> [smelting: diamond_ore] | [smelting: deepslate_diamond_ore] | [crafting: 1 diamond_block -> 9 diamonds]
+  *** PROBLEMA: crafting 1 diamond_block -> 9 diamonds coincide, devolviendo diamond_block
+  NOTA: no tiene forma "raw", el usuario quiere que vaya al output sin reciclar
+
+emerald -> [smelting: emerald_ore] | [smelting: deepslate_emerald_ore] | [crafting: 1 emerald_block -> 9 emeralds]
+  *** PROBLEMA: crafting 1 emerald_block -> 9 emeralds coincide, devolviendo emerald_block
+  NOTA: no tiene forma "raw", el usuario quiere que vaya al output sin reciclar
+
+lapis_lazuli -> [smelting: lapis_ore] | [smelting: deepslate_lapis_ore] | [crafting: 1 lapis_block -> 9 lapis_lazuli]
+  *** PROBLEMA: crafting 1 lapis_block -> 9 lapis_lazuli coincide, devolviendo lapis_block
+
+redstone -> [smelting: redstone_ore] | [smelting: deepslate_redstone_ore] | [crafting: 1 redstone_block -> 9 redstone]
+  *** PROBLEMA: crafting 1 redstone_block -> 9 redstone coincide, devolviendo redstone_block
+  NOTA: redstone_ore tambien dropea redstone al minarlo (no solo smelting)
+
+quartz -> [smelting: nether_quartz_ore] | [crafting: 1 quartz_block -> 4 quartz] (no es 9, es 4!)
+  *** PROBLEMA: crafting da quartz_block como ingrediente
+
+coal -> [smelting: coal_ore] | [smelting: deepslate_coal_ore] | [crafting: 1 coal_block -> 9 coal] | [smelting: coal_ore (drop directo)]
+  *** PROBLEMA: crafting da coal_block como ingrediente
+
+amethyst_shard -> [smelting: amethyst_cluster? no] | [crafting: 1 amethyst_block -> 4 amethyst_shards]
+  *** PROBLEMA: crafting da amethyst_block
+
+================================================================================
+NUCLEOS / NUGGETS
+================================================================================
+
+iron_nugget -> [crafting: 1 iron_ingot -> 9 iron_nuggets] | [smelting: iron_tools/armor (varios)]
+  *** PROBLEMA: crafting da iron_ingot como ingrediente (al reciclar 1 nugget recibes 1 ingote = 9 nuggets)
+
+gold_nugget -> [crafting: 1 gold_ingot -> 9 gold_nuggets] | [smelting: gold_tools/armor (varios)]
+  *** MISMO PROBLEMA
+
+================================================================================
+COMIDA (todos tienen 3 recetas: smelting, smoking, campfire)
+================================================================================
+
+cooked_beef -> [smelting: beef] | [smoking: beef] | [campfire: beef]
+cooked_porkchop -> [smelting: porkchop] | [smoking: porkchop] | [campfire: porkchop]
+cooked_chicken -> [smelting: chicken] | [smoking: chicken] | [campfire: chicken]
+cooked_mutton -> [smelting: mutton] | [smoking: mutton] | [campfire: mutton]
+cooked_rabbit -> [smelting: rabbit] | [smoking: rabbit] | [campfire: rabbit]
+cooked_cod -> [smelting: cod] | [smoking: cod] | [campfire: cod]
+cooked_salmon -> [smelting: salmon] | [smoking: salmon] | [campfire: salmon]
+baked_potato -> [smelting: potato] | [smoking: potato] | [campfire: potato]
+dried_kelp -> [smelting: kelp] | [smoking: kelp] | [campfire: kelp]
+  NOTA: estas no son problematicas, todas dan el mismo ingrediente base
+
+================================================================================
+BLOQUES DE ALMACENAMIENTO (crafting X -> 1 block, y 1 block -> X)
+================================================================================
+
+iron_block -> [crafting: 9 iron_ingots -> 1 iron_block] | [crafting: 4 iron_ingots -> 4 iron_blocks? no] | [stonecutter? no]
+  NOTA: solo una receta crafting, no hay conflicto
+
+gold_block -> [crafting: 9 gold_ingots -> 1 gold_block]
+  NOTA: solo una receta
+
+diamond_block -> [crafting: 9 diamonds -> 1 diamond_block]
+  NOTA: solo una receta
+
+emerald_block -> [crafting: 9 emeralds -> 1 emerald_block]
+  NOTA: solo una receta
+
+lapis_block -> [crafting: 9 lapis_lazuli -> 1 lapis_block]
+  NOTA: solo una receta
+
+redstone_block -> [crafting: 9 redstone -> 1 redstone_block]
+  NOTA: solo una receta
+
+coal_block -> [crafting: 9 coal -> 1 coal_block]
+  NOTA: solo una receta
+
+copper_block -> [crafting: 9 copper_ingots -> 1 copper_block]
+  NOTA: solo una receta
+
+netherite_block -> [crafting: 9 netherite_ingots -> 1 netherite_block]
+  NOTA: solo una receta
+
+amethyst_block -> [crafting: 4 amethyst_shards -> 1 amethyst_block]
+  NOTA: solo una receta
+
+================================================================================
+VIDRIO / MATERIALES
+================================================================================
+
+glass -> [smelting: sand] | [smelting: red_sand] | [smelting: glass_pane? no]
+  NOTA: dos recetas, ambas dan el mismo resultado pero con diferente input (sand vs red_sand)
+
+glass_pane -> [crafting: 6 glass -> 16 glass_panes]
+  NOTA: solo una receta
+
+brick -> [smelting: clay_ball]
+  NOTA: solo una receta
+
+nether_brick -> [smelting: netherrack]
+  NOTA: solo una receta
+
+charcoal -> [smelting: oak_log] | [smelting: spruce_log] | [smelting: birch_log] | [smelting: jungle_log] | [smelting: acacia_log] | [smelting: dark_oak_log] | [smelting: cherry_log] | [smelting: mangrove_log] | [smelting: pale_oak_log] | [smelting: stripped_*_log (varios)]
+  NOTA: muchas recetas, todas dan logs como ingrediente, no es problematico
+
+================================================================================
+STICK / VARITA
+================================================================================
+
+stick -> [crafting: 2 planks -> 4 sticks (shaped)] | [crafting: 2 bamboo -> 1 stick (shaped)]
+  NOTA: dos recetas, el output count es diferente (4 vs 1)
+  *** PROBLEMA: al reciclar 1 stick, si matchea la receta de planks, devuelve 2 planks (que valen 4 sticks)
+
+================================================================================
+TELA / LANA
+================================================================================
+
+white_wool -> [crafting: 4 string -> 1 white_wool] | [crafting: 1 white_wool? no] | [transmute: wool + dye -> dyed wool]
+  NOTA: la receta de teñido es transmute, no afecta al reciclaje de wool sin teñir
+
+string -> [crafting: 1 white_wool -> 4 string] | [crafting: 2 cobweb? no] | [smelting: cobweb? no]
+  *** PROBLEMA: crafting 1 white_wool -> 4 string coincide, devolviendo white_wool
+
+================================================================================
+ARMADURA DE CUERO (PROBLEMA DEL TINTE)
+================================================================================
+
+leather_helmet -> [crafting shaped: 5 leather -> 1 leather_helmet] | [transmute: leather_helmet + dye -> dyed_leather_helmet]
+leather_chestplate -> [crafting shaped: 8 leather -> 1 leather_chestplate] | [transmute: ...]
+leather_leggings -> [crafting shaped: 7 leather -> 1 leather_leggings] | [transmute: ...]
+leather_boots -> [crafting shaped: 4 leather -> 1 leather_boots] | [transmute: ...]
+leather_horse_armor -> [crafting shaped: ? ] | [transmute: ...]
+
+  *** PROBLEMA CRITICO: La armadura de cuero SIEMPRE tiene DYED_COLOR (default = 0xA06540).
+  Cuando se tiñe con un tinte, el color resultante es una MEZCLA del color base
+  (0xA06540) y el color del tinte, NO el color puro del tinte.
+  matchExactDyeColor() compara el RGB mezclado con getTextureDiffuseColor() (puro),
+  NUNCA coincide, devuelve null, y el item va al output sin reciclar.
+
+  FIX NECESARIO: En lugar de comparar el color exacto, hay que SIMULAR el teñido:
+  tomar el color base del cuero (0xA06540), mezclarlo con cada tinte, y comparar
+  el resultado con el color almacenado. O mejor: simplemente asumir que si tiene
+  DYED_COLOR y el item es de cuero, agregar el tinte mas cercano y buscar la
+  receta base (shaped de cuero).
+
+================================================================================
+PIEDRA / COBBLESTONE
+================================================================================
+
+cobblestone -> [smelting: cobblestone? no, smelting da stone] | [crafting: 1 stone? no]
+  NOTA: cobblestone no tiene receta que lo produzca directamente (se obtiene al minar stone)
+
+stone -> [smelting: cobblestone] | [stonecutter: stone? no]
+  NOTA: solo smelting
+
+smooth_stone -> [smelting: stone] | [smelting: cobblestone? no, da stone]
+  NOTA: solo una receta
+
+================================================================================
+OTROS CON MULTIPLES RECETAS
+================================================================================
+
+cracked_stone_bricks -> [smelting: stone_bricks]
+  NOTA: solo una
+
+mossy_cobblestone -> [crafting: cobblestone + vines] | [crafting: cobblestone + moss_block]
+  NOTA: dos recetas shapeless, ambas dan cobblestone + otro como ingredientes
+
+mossy_stone_bricks -> [crafting: stone_bricks + vines] | [crafting: stone_bricks + moss_block]
+  NOTA: dos recetas
+
+chiseled_stone_bricks -> [crafting: 2 stone_brick_slabs] | [stonecutter: stone_bricks -> chiseled]
+  NOTA: dos recetas, stonecutter y crafting
+
+sugar -> [crafting: 1 sugar_cane -> 3 sugar (shapeless? no, shaped?)] | [crafting: 1 honey_bottle -> 3 sugar] | [crafting: 1 melon_slice? no]
+  *** PROBLEMA: al reciclar 1 sugar, si matchea sugar_cane, devuelve 1 sugar_cane (que produce 3 sugar)
+
+paper -> [crafting: 3 sugar_cane -> 3 paper] | [crafting: 1? no]
+  *** PROBLEMA: al reciclar 1 paper, devuelve 3 sugar_cane? no, devuelve 1 sugar_cane (sample de 1)
+
+bone_meal -> [crafting: 1 bone -> 3 bone_meal] | [crafting: 1 bone_block -> 9 bone_meal]
+  *** PROBLEMA: al reciclar 1 bone_meal, puede devolver bone o bone_block
+
+blaze_powder -> [crafting: 1 blaze_rod -> 2 blaze_powder] | [crafting: 1 blaze_rod? si, misma]
+  NOTA: solo una receta realmente
+
+slime_ball -> [crafting: 9 slimeballs? no] | [smelting? no]
+  NOTA: no tiene multiples recetas
+
+magma_cream -> [crafting: slime_ball + blaze_powder] | [smelting? no]
+  NOTA: solo una receta
+
+================================================================================
+RESUMEN DE PROBLEMAS GLOBALES
+================================================================================
+
+1. CRAFTING INVERSO (X items -> 1 block): Al reciclar 1 item, encuentra la receta
+   "1 block -> X items" porque output.getItem() coincide. Devuelve el block
+   como ingrediente (que vale X veces mas).
+   AFECTA: iron, gold, copper, netherite, diamond, emerald, lapis, redstone,
+   coal, quartz, amethyst, iron_nugget, gold_nugget, string, bone_meal, sugar, paper, stick
+
+2. ORDEN DE HORNO: smelting/blasting pueden devolver ore o deepslate_ore
+   en lugar de raw_*. No hay preferencia por raw_*.
+   AFECTA: iron, gold, copper
+
+3. ARMADURA TEÑIDA: matchExactDyeColor falla porque el color es mezcla, no puro.
+   AFECTA: todas las piezas de cuero teñidas
+
+4. OUTPUT COUNT: No se verifica que el output.count sea 1. Recetas que producen
+   multiples items (9, 4, 3, 2) matchean incorrectamente.
+   AFECTA: todos los casos del problema 1
+
+================================================================================
+POSIBLES SOLUCIONES GLOBALES
+================================================================================
+
+A. Para problema 1 y 4: Verificar output.getCount() == 1 en findInCraftingBase.
+   Si output.getCount() > 1, la receta es "desempaquetar" (block -> items),
+   no "fabricar" (items -> block). Saltar esas recetas.
+
+B. Para problema 2: Priorizar ingredientes cuyo nombre contiene "raw_"
+   sobre ingredientes que son ores. O: priorizar smelting sobre blasting.
+   O: filtrar ores y deepslate_ores de los resultados de horno.
+
+C. Para problema 3: Simular el mezclado de tintes en lugar de comparacion exacta.
+   O: simplemente remover DYED_COLOR, agregar el tinte mas cercano por distancia
+   de color, y buscar la receta base.
+
+D. Para gemas sin raw (diamond, emerald): Si no hay receta de horno con raw_*,
+   y la unica opcion es el bloque (crafting), devolver el item original al output.
