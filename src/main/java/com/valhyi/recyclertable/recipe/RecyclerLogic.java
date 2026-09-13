@@ -3,11 +3,10 @@ package com.valhyi.recyclertable.recipe;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.DyeColor;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.component.DyedItemColor;
 import net.minecraft.world.item.crafting.AbstractCookingRecipe;
 import net.minecraft.world.item.crafting.CraftingInput;
@@ -31,69 +30,62 @@ import java.util.List;
 
 public class RecyclerLogic {
 
+    /**
+     * ES: Tag de datapack para excluir items del reciclaje por completo
+     * (metales, gemas, nuggets, comida, piedra/cobblestone, etc).
+     * Archivo: data/recyclertable/tags/item/blacklisted_from_recycling.json
+     */
+    public static final TagKey<Item> BLACKLISTED_FROM_RECYCLING =
+            TagKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath("recyclertable", "blacklisted_from_recycling"));
+
+    /**
+     * ES: Resultado de encontrar la receta que produce el item objetivo.
+     * ingredients: 1 copia de cada ingrediente necesario para UNA aplicación de la receta.
+     * outputCount: cuántas unidades del item objetivo produce UNA aplicación de la receta.
+     */
+    public record RecipeMatch(List<ItemStack> ingredients, int outputCount) {}
+
+    /**
+     * ES: Resultado final de procesar un stack completo del slot de proceso.
+     */
+    public record RecyclingOutput(List<ItemStack> results, int bottlesConsumed, int booksConsumed) {}
+
     public static boolean canRecycle(ItemStack itemStack, Level level) {
         return !itemStack.isEmpty() && !level.isClientSide();
     }
 
-    /**
-     * ES: Punto de entrada principal. Busca los ingredientes que produjeron
-     * este item probando, en orden de prioridad: tinte exacto -> Stonecutter
-     * -> Crafting (shaped/shapeless/transmute) -> Hornos -> Herrería.
-     */
-    public static List<ItemStack> getRecipeIngredients(ItemStack inputStack, Level level) {
-        List<ItemStack> ingredients = new ArrayList<>();
+    public static boolean isBlacklisted(ItemStack stack) {
+        return stack.is(BLACKLISTED_FROM_RECYCLING);
+    }
 
+    /**
+     * ES: Punto de entrada principal. Busca la receta que produjo este item probando,
+     * en orden de prioridad: Stonecutter -> Hornos -> Crafting (shaped/shapeless/transmute)
+     * -> Herrería. Devuelve null si no hay receta, si está en la blacklist, o si el item
+     * tiene un DYED_COLOR (items teñidos no se reconstruyen a materiales).
+     */
+    public static RecipeMatch getRecipeMatch(ItemStack inputStack, Level level) {
         if (inputStack.isEmpty() || level.isClientSide() || level.getServer() == null) {
-            return ingredients;
+            return null;
+        }
+
+        if (isBlacklisted(inputStack)) {
+            return null;
+        }
+
+        // ES: Items teñidos (armadura de cuero, etc.) no devuelven materiales al reciclar.
+        // Si están encantados, el encantamiento se extrae por otra vía (ver processRecycling).
+        DyedItemColor dyedColor = inputStack.get(DataComponents.DYED_COLOR);
+        if (dyedColor != null) {
+            return null;
         }
 
         RecipeManager recipeManager = level.getServer().getRecipeManager();
-
-        DyedItemColor dyedColor = inputStack.get(DataComponents.DYED_COLOR);
-        if (dyedColor != null) {
-            DyeColor exactDye = matchExactDyeColor(dyedColor.rgb());
-            if (exactDye == null) {
-                // ES: Mezcla de varios tintes o re-teñido: no reconstruible
-                return ingredients;
-            }
-
-            ItemStack dyeStack = dyeItemStack(exactDye, level);
-            if (!dyeStack.isEmpty()) {
-                ingredients.add(dyeStack);
-            }
-
-            ItemStack undyedCopy = inputStack.copyWithCount(1);
-            undyedCopy.remove(DataComponents.DYED_COLOR);
-            List<ItemStack> baseIngredients = findByPriorityNoTransmute(undyedCopy, recipeManager);
-            if (!baseIngredients.isEmpty()) {
-                ingredients.addAll(baseIngredients);
-            }
-            return ingredients;
-        }
-
         return findByPriority(inputStack, recipeManager);
     }
 
-    private static List<ItemStack> findByPriority(ItemStack target, RecipeManager recipeManager) {
-        List<ItemStack> found;
-
-        found = findInStonecutter(target, recipeManager);
-        if (found != null) return found;
-
-        found = findInCooking(target, recipeManager);
-        if (found != null) return found;
-
-        found = findInCrafting(target, recipeManager);
-        if (found != null) return found;
-
-        found = findInSmithing(target, recipeManager);
-        if (found != null) return found;
-
-        return new ArrayList<>();
-    }
-
-    private static List<ItemStack> findByPriorityNoTransmute(ItemStack target, RecipeManager recipeManager) {
-        List<ItemStack> found;
+    private static RecipeMatch findByPriority(ItemStack target, RecipeManager recipeManager) {
+        RecipeMatch found;
 
         found = findInStonecutter(target, recipeManager);
         if (found != null) return found;
@@ -104,39 +96,15 @@ public class RecyclerLogic {
         found = findInCraftingBase(target, recipeManager);
         if (found != null) return found;
 
+        found = findInCraftingTransmute(target, recipeManager);
+        if (found != null) return found;
+
         found = findInSmithing(target, recipeManager);
         if (found != null) return found;
 
-        return new ArrayList<>();
-    }
-
-    private static DyeColor matchExactDyeColor(int rgb) {
-        for (DyeColor dye : DyeColor.values()) {
-            if (dye.getTextureDiffuseColor() == rgb) {
-                return dye;
-            }
-        }
         return null;
     }
 
-    /**
-     * ES: Devuelve el ItemStack del tinte vanilla correspondiente a un DyeColor.
-     * EN: Returns the vanilla dye ItemStack for a given DyeColor.
-     */
-    /**
-     * ES: Busca el ItemStack del tinte vanilla correspondiente a un DyeColor,
-     * por su ID de registro (más estable que una constante de Items).
-     * EN: Looks up the vanilla dye ItemStack for a DyeColor by registry id
-     * (more stable than an Items constant).
-     */
-    private static ItemStack dyeItemStack(DyeColor color, Level level) {
-        Identifier id = Identifier.fromNamespaceAndPath("minecraft", color.getSerializedName() + "_dye");
-        ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, id);
-        return level.registryAccess().lookupOrThrow(Registries.ITEM)
-                .get(key)
-                .map(holder -> new ItemStack(holder.value()))
-                .orElse(ItemStack.EMPTY);
-    }
     private static List<ItemStack> sampleFrom(List<Ingredient> ingredients) {
         List<ItemStack> samples = new ArrayList<>();
         for (Ingredient ingredient : ingredients) {
@@ -147,7 +115,7 @@ public class RecyclerLogic {
     }
 
     // ================= STONECUTTER =================
-    private static List<ItemStack> findInStonecutter(ItemStack target, RecipeManager recipeManager) {
+    private static RecipeMatch findInStonecutter(ItemStack target, RecipeManager recipeManager) {
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.STONECUTTING)) {
             Recipe<?> recipe = holder.value();
             if (!(recipe instanceof StonecutterRecipe stonecutterRecipe)) continue;
@@ -164,20 +132,14 @@ public class RecyclerLogic {
                 ItemStack copy = samples.get(0).copy();
                 copy.setCount(1);
                 result.add(copy);
-                return result;
+                return new RecipeMatch(result, output.getCount());
             }
         }
         return null;
     }
 
-    // ================= CRAFTING (shaped / shapeless primero, transmute despues) =================
-    private static List<ItemStack> findInCrafting(ItemStack target, RecipeManager recipeManager) {
-        List<ItemStack> result = findInCraftingBase(target, recipeManager);
-        if (result != null) return result;
-        return findInCraftingTransmute(target, recipeManager);
-    }
-
-    private static List<ItemStack> findInCraftingBase(ItemStack target, RecipeManager recipeManager) {
+    // ================= CRAFTING (shaped / shapeless) =================
+    private static RecipeMatch findInCraftingBase(ItemStack target, RecipeManager recipeManager) {
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
             Recipe<?> recipe = holder.value();
 
@@ -207,13 +169,14 @@ public class RecyclerLogic {
                     copy.setCount(1);
                     result.add(copy);
                 }
-                return result;
+                return new RecipeMatch(result, output.getCount());
             }
         }
         return null;
     }
 
-    private static List<ItemStack> findInCraftingTransmute(ItemStack target, RecipeManager recipeManager) {
+    // ================= CRAFTING (transmute) =================
+    private static RecipeMatch findInCraftingTransmute(ItemStack target, RecipeManager recipeManager) {
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
             Recipe<?> recipe = holder.value();
 
@@ -237,15 +200,15 @@ public class RecyclerLogic {
                     copy.setCount(1);
                     result.add(copy);
                 }
-                return result;
+                return new RecipeMatch(result, output.getCount());
             }
         }
         return null;
     }
 
     // ================= HORNOS (smelting / blasting / smoking / campfire) =================
-    private static List<ItemStack> findInCooking(ItemStack target, RecipeManager recipeManager) {
-        List<ItemStack> result;
+    private static RecipeMatch findInCooking(ItemStack target, RecipeManager recipeManager) {
+        RecipeMatch result;
 
         result = searchCookingType(RecipeType.SMELTING, target, recipeManager);
         if (result != null) return result;
@@ -260,7 +223,7 @@ public class RecyclerLogic {
         return result;
     }
 
-    private static <T extends AbstractCookingRecipe> List<ItemStack> searchCookingType(RecipeType<T> type, ItemStack target, RecipeManager recipeManager) {
+    private static <T extends AbstractCookingRecipe> RecipeMatch searchCookingType(RecipeType<T> type, ItemStack target, RecipeManager recipeManager) {
         for (RecipeHolder<T> holder : recipeManager.recipeMap().byType(type)) {
             T recipe = holder.value();
 
@@ -276,14 +239,14 @@ public class RecyclerLogic {
                 ItemStack copy = samples.get(0).copy();
                 copy.setCount(1);
                 result.add(copy);
-                return result;
+                return new RecipeMatch(result, output.getCount());
             }
         }
         return null;
     }
 
     // ================= MESA DE HERRERÍA (solo smithing_transform) =================
-    private static List<ItemStack> findInSmithing(ItemStack target, RecipeManager recipeManager) {
+    private static RecipeMatch findInSmithing(ItemStack target, RecipeManager recipeManager) {
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.SMITHING)) {
             Recipe<?> recipe = holder.value();
             if (!(recipe instanceof SmithingTransformRecipe smithingRecipe)) continue;
@@ -306,49 +269,92 @@ public class RecyclerLogic {
                     copy.setCount(1);
                     result.add(copy);
                 }
-                return result;
+                return new RecipeMatch(result, output.getCount());
             }
         }
         return null;
     }
 
-    public static List<ItemStack> processRecycling(ItemStack inputStack, ItemStack emptyBottle, ItemStack book, Level level) {
+    /**
+     * ES: Procesa el stack COMPLETO del slot de proceso (puede tener varias unidades
+     * acumuladas). Si el item está encantado, se procesa unidad por unidad (1 botella +
+     * 1 libro por unidad). Si no, se calculan lotes según cuántas unidades pide la receta
+     * original; el sobrante que no alcanza para un lote completo pasa sin convertir.
+     */
+    public static RecyclingOutput processRecycling(ItemStack stackInProcess, ItemStack emptyBottle, ItemStack book, Level level) {
         List<ItemStack> results = new ArrayList<>();
 
-        if (inputStack.isEmpty() || level == null) {
-            return results;
+        if (stackInProcess.isEmpty() || level == null) {
+            return new RecyclingOutput(results, 0, 0);
         }
 
-        ItemEnchantments enchantments = inputStack.get(DataComponents.ENCHANTMENTS);
-        boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
-        boolean hasEmptyBottle = !emptyBottle.isEmpty();
-        boolean hasBook = !book.isEmpty();
+        int totalCount = stackInProcess.getCount();
+        ItemStack singleSample = stackInProcess.copyWithCount(1);
 
-        List<ItemStack> ingredients = getRecipeIngredients(inputStack, level);
+        ItemEnchantments enchantments = stackInProcess.get(DataComponents.ENCHANTMENTS);
+        boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
 
         if (isEnchanted) {
+            boolean hasEmptyBottle = !emptyBottle.isEmpty();
+            boolean hasBook = !book.isEmpty();
+
             if (!hasEmptyBottle || !hasBook) {
-                results.add(inputStack.copy());
-                return results;
+                results.add(stackInProcess.copy());
+                return new RecyclingOutput(results, 0, 0);
             }
 
-            if (!ingredients.isEmpty()) {
-                results.addAll(ingredients);
+            int processedUnits = Math.min(totalCount, Math.min(emptyBottle.getCount(), book.getCount()));
+            if (processedUnits <= 0) {
+                results.add(stackInProcess.copy());
+                return new RecyclingOutput(results, 0, 0);
             }
 
-            createSingleEnchantmentBooks(enchantments, results, level);
+            RecipeMatch match = getRecipeMatch(singleSample, level);
 
-            ItemStack xpBottle = new ItemStack(Items.EXPERIENCE_BOTTLE);
-            results.add(xpBottle);
-        } else {
-            if (!ingredients.isEmpty()) {
-                results.addAll(ingredients);
-            } else {
-                results.add(inputStack.copy());
+            for (int unit = 0; unit < processedUnits; unit++) {
+                if (match != null) {
+                    for (ItemStack ingredient : match.ingredients()) {
+                        results.add(ingredient.copy());
+                    }
+                }
+                createSingleEnchantmentBooks(enchantments, results, level);
+                results.add(new ItemStack(Items.EXPERIENCE_BOTTLE));
             }
+
+            int leftover = totalCount - processedUnits;
+            if (leftover > 0) {
+                results.add(stackInProcess.copyWithCount(leftover));
+            }
+
+            return new RecyclingOutput(results, processedUnits, processedUnits);
         }
 
-        return results;
+        RecipeMatch match = getRecipeMatch(singleSample, level);
+        if (match == null || match.ingredients().isEmpty()) {
+            results.add(stackInProcess.copy());
+            return new RecyclingOutput(results, 0, 0);
+        }
+
+        int requiredQty = Math.max(1, match.outputCount());
+        int batches = totalCount / requiredQty;
+        int remainder = totalCount % requiredQty;
+
+        if (batches <= 0) {
+            results.add(stackInProcess.copy());
+            return new RecyclingOutput(results, 0, 0);
+        }
+
+        for (ItemStack ingredient : match.ingredients()) {
+            ItemStack copy = ingredient.copy();
+            copy.setCount(ingredient.getCount() * batches);
+            results.add(copy);
+        }
+
+        if (remainder > 0) {
+            results.add(stackInProcess.copyWithCount(remainder));
+        }
+
+        return new RecyclingOutput(results, 0, 0);
     }
 
     private static void createSingleEnchantmentBooks(ItemEnchantments sourceEnchantments, List<ItemStack> results, Level level) {
