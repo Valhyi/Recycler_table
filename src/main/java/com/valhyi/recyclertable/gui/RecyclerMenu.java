@@ -114,7 +114,7 @@ public class RecyclerMenu extends AbstractContainerMenu {
     }
 
     public boolean isProcessing() {
-        return this.data.get(1) == 1;
+        return this.getSlot(9).hasItem();
     }
 
     @Override

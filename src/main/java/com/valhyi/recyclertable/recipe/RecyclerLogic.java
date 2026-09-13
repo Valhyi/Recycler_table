@@ -64,7 +64,10 @@ public class RecyclerLogic {
 
             ItemStack undyedCopy = inputStack.copyWithCount(1);
             undyedCopy.remove(DataComponents.DYED_COLOR);
-            ingredients.addAll(findByPriority(undyedCopy, recipeManager));
+            List<ItemStack> baseIngredients = findByPriorityNoTransmute(undyedCopy, recipeManager);
+            if (!baseIngredients.isEmpty()) {
+                ingredients.addAll(baseIngredients);
+            }
             return ingredients;
         }
 
@@ -77,10 +80,28 @@ public class RecyclerLogic {
         found = findInStonecutter(target, recipeManager);
         if (found != null) return found;
 
+        found = findInCooking(target, recipeManager);
+        if (found != null) return found;
+
         found = findInCrafting(target, recipeManager);
         if (found != null) return found;
 
+        found = findInSmithing(target, recipeManager);
+        if (found != null) return found;
+
+        return new ArrayList<>();
+    }
+
+    private static List<ItemStack> findByPriorityNoTransmute(ItemStack target, RecipeManager recipeManager) {
+        List<ItemStack> found;
+
+        found = findInStonecutter(target, recipeManager);
+        if (found != null) return found;
+
         found = findInCooking(target, recipeManager);
+        if (found != null) return found;
+
+        found = findInCraftingBase(target, recipeManager);
         if (found != null) return found;
 
         found = findInSmithing(target, recipeManager);
@@ -149,12 +170,18 @@ public class RecyclerLogic {
         return null;
     }
 
-    // ================= CRAFTING (shaped / shapeless / transmute, cubre 2x2 y 3x3) =================
+    // ================= CRAFTING (shaped / shapeless primero, transmute despues) =================
     private static List<ItemStack> findInCrafting(ItemStack target, RecipeManager recipeManager) {
+        List<ItemStack> result = findInCraftingBase(target, recipeManager);
+        if (result != null) return result;
+        return findInCraftingTransmute(target, recipeManager);
+    }
+
+    private static List<ItemStack> findInCraftingBase(ItemStack target, RecipeManager recipeManager) {
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
             Recipe<?> recipe = holder.value();
 
-            if (!(recipe instanceof ShapedRecipe) && !(recipe instanceof ShapelessRecipe) && !(recipe instanceof TransmuteRecipe)) {
+            if (!(recipe instanceof ShapedRecipe) && !(recipe instanceof ShapelessRecipe)) {
                 continue;
             }
 
@@ -169,11 +196,39 @@ public class RecyclerLogic {
             ItemStack output;
             if (recipe instanceof ShapedRecipe shaped) {
                 output = shaped.assemble(input);
-            } else if (recipe instanceof ShapelessRecipe shapeless) {
-                output = shapeless.assemble(input);
             } else {
-                output = ((TransmuteRecipe) recipe).assemble(input);
+                output = ((ShapelessRecipe) recipe).assemble(input);
             }
+
+            if (!output.isEmpty() && output.getItem() == target.getItem()) {
+                List<ItemStack> result = new ArrayList<>();
+                for (ItemStack sample : samples) {
+                    ItemStack copy = sample.copy();
+                    copy.setCount(1);
+                    result.add(copy);
+                }
+                return result;
+            }
+        }
+        return null;
+    }
+
+    private static List<ItemStack> findInCraftingTransmute(ItemStack target, RecipeManager recipeManager) {
+        for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
+            Recipe<?> recipe = holder.value();
+
+            if (!(recipe instanceof TransmuteRecipe)) {
+                continue;
+            }
+
+            List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
+            if (recipeIngredients.isEmpty()) continue;
+
+            List<ItemStack> samples = sampleFrom(recipeIngredients);
+            if (samples.stream().anyMatch(ItemStack::isEmpty)) continue;
+
+            CraftingInput input = CraftingInput.of(samples.size(), 1, samples);
+            ItemStack output = ((TransmuteRecipe) recipe).assemble(input);
 
             if (!output.isEmpty() && output.getItem() == target.getItem()) {
                 List<ItemStack> result = new ArrayList<>();

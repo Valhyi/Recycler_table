@@ -53,6 +53,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
             if (index == 0) {
                 autoMode = value != 0;
             }
+            // index 1 (processing) is read-only on the client; no-op
         }
 
         @Override
