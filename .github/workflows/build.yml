@@ -2,7 +2,7 @@ name: Build Mod Jar
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "Main" ]
   workflow_dispatch:
 
 jobs:
@@ -13,9 +13,6 @@ jobs:
 
     - name: Checkout Code
       uses: actions/checkout@v5
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
 
     - name: Set up JDK 25
       uses: actions/setup-java@v5
@@ -30,9 +27,12 @@ jobs:
     - name: Regenerate Gradle Wrapper
       run: gradle wrapper
 
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
     - name: Build Mod
       run: ./gradlew build --refresh-dependencies --no-daemon
-  
+
     - name: Upload Mod Jar
       uses: actions/upload-artifact@v4
       with:
