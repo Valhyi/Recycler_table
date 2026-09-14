@@ -9,7 +9,6 @@ import net.minecraft.core.NonNullList;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
-import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -452,36 +451,10 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         }
     }
 
-    /**
-     * Llamado cuando el bloque es destruido
-     * Devuelve todos los items de los contenedores
-     */
-    @Override
-    public void setRemoved() {
-        // Soltar todos los items del contenedor
-        if (this.level != null && !this.level.isClientSide()) {
-            // Slots 0-8: Input Grid
-            for (int i = 0; i < 9; i++) {
-                Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(i));
-            }
-            
-            // Slot 9: Item(s) en proceso
-            Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(9));
-            
-            // Slot 10: Botella vacía
-            Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(10));
-            
-            // Slot 11: Libro
-            Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(11));
-            
-            // Slots 12-20: Output Grid
-            for (int i = 12; i < 21; i++) {
-                Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(i));
-            }
-        }
-        
-        super.setRemoved();
-    }
+    // ES: Ya no se sobreescribe setRemoved() aquí. Soltar el inventario al romper
+    // el bloque ahora se maneja en RecyclerBlock#onRemove(), porque setRemoved()
+    // también se dispara al recargar el chunk (no solo al romper el bloque), lo
+    // que causaba que los items se duplicaran cada vez que se entraba al mundo.
 
     @Override
     protected void saveAdditional(ValueOutput output) {
