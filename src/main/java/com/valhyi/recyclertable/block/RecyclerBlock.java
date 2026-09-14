@@ -83,24 +83,15 @@ public class RecyclerBlock extends Block implements EntityBlock {
      * a diferencia de BlockEntity#setRemoved(). Por eso la lógica de soltar el
      * contenido del inventario vive aquí y no en el BlockEntity.
      */
-@Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
         if (!state.is(newState.getBlock())) {
-            if (!level.isClientSide()) {
-                BlockEntity blockEntity = level.getBlockEntity(pos);
-                if (blockEntity instanceof RecyclerBlockEntity recycler) {
-                    // Reemplaza getItemHandler() por el getter o campo donde almacenes tu ItemStackHandler
-                    var inventory = recycler.getItemHandler(); 
-                    for (int i = 0; i < inventory.getSlots(); i++) {
-                        ItemStack stack = inventory.getStackInSlot(i);
-                        if (!stack.isEmpty()) {
-                            Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
-                            inventory.setStackInSlot(i, ItemStack.EMPTY);
-                        }
-                    }
-                }
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof RecyclerTableBlockEntity recyclerEntity) {
+                Containers.dropContents(level, pos, recyclerEntity.getInventory());
+                level.updateNeighbourForOutputSignal(pos, this);
             }
-            super.onRemove(state, level, pos, newState, movedByPiston);
+            super.onRemove(state, level, pos, newState, isMoving);
         }
     }
 }
