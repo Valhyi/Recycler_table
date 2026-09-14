@@ -158,7 +158,7 @@ public class RecyclerLogic {
     }
 
     // ================= CRAFTING (shaped / shapeless) =================
-    private static RecipeMatch findInCraftingBase(ItemStack target, RecipeManager recipeManager) {
+        private static List<ItemStack> findInCraftingBase(ItemStack target, RecipeManager recipeManager) {
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
             Recipe<?> recipe = holder.value();
 
@@ -168,7 +168,6 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
-            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
             List<ItemStack> samples = sampleFrom(recipeIngredients);
             if (samples.stream().anyMatch(ItemStack::isEmpty)) continue;
@@ -189,7 +188,7 @@ public class RecyclerLogic {
                     copy.setCount(1);
                     result.add(copy);
                 }
-                return new RecipeMatch(result, output.getCount());
+                return result;
             }
         }
         return null;
