@@ -10,7 +10,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
@@ -18,6 +18,11 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     private static final WidgetSprites PLAY_SPRITES = new WidgetSprites(
             RecyclerTable.resLoc("widget/play_button"),
+            RecyclerTable.resLoc("widget/play_button_highlighted")
+    );
+
+    private static final WidgetSprites PLAY_ACTIVE_SPRITES = new WidgetSprites(
+            RecyclerTable.resLoc("widget/play_button_highlighted"),
             RecyclerTable.resLoc("widget/play_button_highlighted")
     );
 
@@ -31,6 +36,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             RecyclerTable.resLoc("widget/auto_button_active_highlighted")
     );
 
+    private ImageButton playIdleButton;
+    private ImageButton playActiveButton;
     private ImageButton autoOffButton;
     private ImageButton autoOnButton;
 
@@ -43,47 +50,56 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         super.init();
         this.titleLabelX = this.imageWidth / 2 - this.font.width(this.title) / 2;
 
-        // Ajusta estas coordenadas a donde quieras los botones dentro de tu GUI (176x166)
-        int buttonX = this.leftPos + 80;
-         // placeholder, ver nota abajo
-        buttonY = this.topPos + 50;
+        int playX = this.leftPos + 65;
+        int autoX = this.leftPos + 97;
+        int buttonY = this.topPos + 55;
 
-        this.addRenderableWidget(new ImageButton(
-                buttonX, buttonY, 14, 14, PLAY_SPRITES,
+        this.playIdleButton = this.addRenderableWidget(new ImageButton(
+                playX, buttonY, 14, 14, PLAY_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.PLAY),
                 Component.translatable("gui.recyclertable.play_button")
         ));
 
+        this.playActiveButton = this.addRenderableWidget(new ImageButton(
+                playX, buttonY, 14, 14, PLAY_ACTIVE_SPRITES,
+                button -> {},
+                Component.translatable("gui.recyclertable.play_button")
+        ));
+
         this.autoOffButton = this.addRenderableWidget(new ImageButton(
-                buttonX + 18, buttonY, 14, 14, AUTO_OFF_SPRITES,
+                autoX, buttonY, 14, 14, AUTO_OFF_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.AUTO),
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
         this.autoOnButton = this.addRenderableWidget(new ImageButton(
-                buttonX + 18, buttonY, 14, 14, AUTO_ON_SPRITES,
+                autoX, buttonY, 14, 14, AUTO_ON_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.AUTO),
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
-        updateAutoButtonVisibility();
+        updateButtonStates();
     }
 
     @Override
     public void containerTick() {
         super.containerTick();
-        updateAutoButtonVisibility();
+        updateButtonStates();
     }
 
-    private void updateAutoButtonVisibility() {
-        boolean active = this.menu.isAutoActive();
-        if (this.autoOffButton != null) this.autoOffButton.setVisible(!active);
-        if (this.autoOnButton != null) this.autoOnButton.setVisible(active);
+    private void updateButtonStates() {
+        boolean autoActive = this.menu.isAutoActive();
+        boolean processing = this.menu.isProcessing();
+
+        if (this.playIdleButton != null) this.playIdleButton.visible = !processing;
+        if (this.playActiveButton != null) this.playActiveButton.visible = processing;
+        if (this.autoOffButton != null) this.autoOffButton.visible = !autoActive;
+        if (this.autoOnButton != null) this.autoOnButton.visible = autoActive;
     }
 
     private void sendButtonPacket(RecyclerButtonPayload.ButtonType type) {
         if (this.minecraft != null && this.minecraft.player != null) {
-            PacketDistributor.sendToServer(new RecyclerButtonPayload(this.menu.getBlockPos(), type));
+            ClientPacketDistributor.sendToServer(new RecyclerButtonPayload(this.menu.getBlockPos(), type));
         }
     }
 

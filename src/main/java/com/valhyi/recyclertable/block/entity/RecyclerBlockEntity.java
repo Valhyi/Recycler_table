@@ -28,20 +28,28 @@ import net.neoforged.neoforge.transfer.item.VanillaContainerWrapper;
 import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     private final SimpleContainer container = new SimpleContainer(21);
 
     private int processingTicks = 0;
-    private static final int PROCESSING_TIME = 60; // Cada 60 ticks se procesa 1 item
+    private static final int PROCESSING_TIME = 60; // Ticks que dura un ciclo de proceso
 
-    
     private boolean autoMode = false;
     private boolean singleShotPending = false;
 
     private final net.minecraft.world.inventory.ContainerData dataAccess = new net.minecraft.world.inventory.ContainerData() {
         @Override
         public int get(int index) {
-            return index == 0 ? (autoMode ? 1 : 0) : 0;
+            return switch (index) {
+                case 0 -> autoMode ? 1 : 0;
+                // ES: "Procesando" incluye: contando ticks, single-shot pendiente,
+                // o un item aparcado en el slot 9 esperando espacio en el output.
+                case 1 -> (processingTicks > 0 || singleShotPending || !container.getItem(9).isEmpty()) ? 1 : 0;
+                default -> 0;
+            };
         }
 
         @Override
@@ -49,11 +57,12 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
             if (index == 0) {
                 autoMode = value != 0;
             }
+            // index 1 (processing) is read-only on the client; no-op
         }
 
         @Override
         public int getCount() {
-            return 1;
+            return 2;
         }
     };
 
@@ -89,7 +98,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     @Nullable
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
-        return new RecyclerMenu(containerId, playerInventory, this.container);
+        return new RecyclerMenu(containerId, playerInventory, this.getBlockPos(), this.container, this.dataAccess);
     }
 
     public SimpleContainer getContainer() {
@@ -183,9 +192,9 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
     /**
      * Called by BlockEntityTicker every server tick
-     * Procesa un item del grid de entrada
+     * Procesa el grid de entrada / slot de proceso
      * Slots 0-8: Input Grid
-     * Slot 9: Item en proceso (lectura)
+     * Slot 9: Item(s) en proceso (stackeable hasta el maximo del item)
      * Slot 10: Botella vacía (restringido)
      * Slot 11: Libro (restringido)
      * Slots 12-20: Output Grid
@@ -235,9 +244,38 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     /**
+     * ES: Mientras hay un item en proceso (slot 9), absorbe del input (slots 0-8)
+     * cualquier item idéntico (mismo item + mismos componentes) hasta llenar el
+     * slot 9 hasta su stack máximo. Se llama cada tick durante el ciclo de proceso.
+     */
+    private void accumulateMatchingItems() {
+        ItemStack template = container.getItem(9);
+        if (template.isEmpty()) return;
+
+        int maxStack = template.getMaxStackSize();
+        if (template.getCount() >= maxStack) return;
+
+        for (int i = 0; i < 9; i++) {
+            ItemStack inputItem = container.getItem(i);
+            if (inputItem.isEmpty()) continue;
+            if (!ItemStack.isSameItemSameComponents(inputItem, template)) continue;
+
+            int space = maxStack - template.getCount();
+            if (space <= 0) break;
+
+            int transfer = Math.min(space, inputItem.getCount());
+            template.grow(transfer);
+            inputItem.shrink(transfer);
+            this.setChanged();
+
+            if (template.getCount() >= maxStack) break;
+        }
+    }
+
+    /**
      * Verifica si hay espacio en el output para colocar todos los items
      */
-    private boolean canFitAllResults(java.util.List<ItemStack> results) {
+    private boolean canFitAllResults(List<ItemStack> results) {
         // Crear una copia de los slots de output para simular la colocación
         ItemStack[] tempSlots = new ItemStack[9];
         for (int i = 0; i < 9; i++) {
@@ -276,6 +314,30 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         return true; // Hay espacio para todos
     }
 
+    /**
+     * ES: Coloca un ItemStack resultante en el grid de output (slots 12-20),
+     * apilando sobre stacks existentes compatibles o usando un slot vacío.
+     */
+    private void placeInOutput(ItemStack result) {
+        ItemStack toPlace = result.copy();
+
+        for (int slot = 12; slot <= 20 && !toPlace.isEmpty(); slot++) {
+            ItemStack existingItem = container.getItem(slot);
+            if (existingItem.isEmpty()) {
+                container.setItem(slot, toPlace.copy());
+                toPlace = ItemStack.EMPTY;
+                break;
+            } else if (ItemStack.isSameItemSameComponents(existingItem, toPlace)) {
+                int space = existingItem.getMaxStackSize() - existingItem.getCount();
+                if (space > 0) {
+                    int transfer = Math.min(space, toPlace.getCount());
+                    existingItem.grow(transfer);
+                    toPlace.shrink(transfer);
+                }
+            }
+        }
+    }
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (level == null || level.isClientSide()) {
             return;
@@ -284,21 +346,26 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         // Mover botellas y libros del input a los espacios restringidos
         moveRestrictedItemsFromInput();
 
-        // Si está procesando, decrementar contador
-        if (processingTicks > 0) {
-            processingTicks--;
-            if (processingTicks == 0) {
-                completeRecycling();
+        ItemStack processStack = container.getItem(9);
+
+        // Si hay algo en el slot de proceso, gestionarlo (contando o aparcado)
+        if (!processStack.isEmpty()) {
+            if (processingTicks > 0) {
+                // Mientras cuenta, sigue absorbiendo items idénticos del input
+                accumulateMatchingItems();
+                processingTicks--;
+                if (processingTicks == 0) {
+                    attemptResolveProcessing();
+                }
+            } else {
+                // Aparcado: el ciclo ya terminó pero no había espacio en el output.
+                // Reintenta cada tick automáticamente, sin necesitar el botón Play.
+                attemptResolveProcessing();
             }
             return;
         }
 
-        // Si hay un item en slot 9, NO hacer nada (esperar a que se procese)
-        if (!container.getItem(9).isEmpty()) {
-            return;
-        }
-
-        // Solo buscar nuevo item si Auto está activo o si se presionó Play
+        // Slot de proceso vacío: solo buscar nuevo item si Auto está activo o se presionó Play
         if (!autoMode && !singleShotPending) {
             return;
         }
@@ -307,101 +374,73 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         for (int i = 0; i < 9; i++) {
             ItemStack inputItem = container.getItem(i);
             if (!inputItem.isEmpty() && RecyclerLogic.canRecycle(inputItem, level)) {
-                // Crear una copia de solo 1 item
-                ItemStack singleItem = inputItem.copy();
-                singleItem.setCount(1);
-                
-                // Obtener botellas vacías y libros
-                ItemStack emptyBottle = container.getItem(10);
-                ItemStack book = container.getItem(11);
-
-                // Procesar para obtener los resultados
-                java.util.List<ItemStack> results = RecyclerLogic.processRecycling(singleItem, emptyBottle, book, level);
-                
-                // Si no hay resultados, usar el item original
-                if (results.isEmpty()) {
-                    results = new java.util.ArrayList<>();
-                    results.add(singleItem.copy());
-                }
-
-                // VERIFICAR SI CABE ANTES DE CONSUMIR EL ITEM
-                if (!canFitAllResults(results)) {
-                    // No hay espacio, NO hacer nada (pausa automática)
-                    return;
-                }
-
-                // HAY ESPACIO: Reducir el item del input
+                // Tomar 1 unidad para establecer el "molde" del slot de proceso
+                ItemStack singleItem = inputItem.copyWithCount(1);
                 inputItem.shrink(1);
-                
-                // Guardar el item en proceso en el slot central (slot 9)
+
                 container.setItem(9, singleItem);
-                
-                // Iniciar procesamiento
                 processingTicks = PROCESSING_TIME;
-                singleShotPending = false; // Play solo procesa 1 item y se apaga
+
+                // Absorber de inmediato cualquier otra unidad idéntica ya disponible
+                accumulateMatchingItems();
+
+                singleShotPending = false; // Play solo inicia 1 ciclo y se apaga
                 this.setChanged();
                 return;
             }
         }
+
+        // No se encontró ningún item reciclable en el input: detener Auto y Play
+        if (autoMode || singleShotPending) {
+            autoMode = false;
+            singleShotPending = false;
+            this.setChanged();
+        }
     }
 
     /**
-     * Completa el reciclaje y coloca los resultados en el output
+     * ES: Intenta resolver el contenido del slot de proceso (llamado al llegar a 0
+     * ticks, o cada tick mientras está aparcado esperando espacio). Si el resultado
+     * cabe en el output, lo coloca y limpia el slot 9. Si no cabe, detiene el modo
+     * automático pero deja los items aparcados para reintentar en el próximo tick.
      */
-    private void completeRecycling() {
-        ItemStack itemInProcess = container.getItem(9);
-        if (itemInProcess.isEmpty() || this.level == null) {
+    private void attemptResolveProcessing() {
+        ItemStack processStack = container.getItem(9);
+        if (processStack.isEmpty() || this.level == null) {
             return;
         }
 
-        // Obtener botellas vacías y libros de los slots centrales
         ItemStack emptyBottle = container.getItem(10);
         ItemStack book = container.getItem(11);
 
-        // Procesar el reciclaje (solo 1 item)
-        java.util.List<ItemStack> results = RecyclerLogic.processRecycling(itemInProcess, emptyBottle, book, this.level);
+        RecyclerLogic.RecyclingOutput output = RecyclerLogic.processRecycling(processStack, emptyBottle, book, this.level);
 
-        // Si no hay resultados, devolver el item original al output (item sin receta)
+        List<ItemStack> results = output.results();
         if (results.isEmpty()) {
-            results = new java.util.ArrayList<>();
-            results.add(itemInProcess.copy());
+            results = new ArrayList<>();
+            results.add(processStack.copy());
         }
 
-        // Colocar resultados en el grid de output (slots 12-20)
+        if (!canFitAllResults(results)) {
+            // No hay espacio: detener Auto (no debe reanudarse solo), pero NO perder
+            // los items ya acumulados en el slot 9. Quedan aparcados para reintentar.
+            autoMode = false;
+            singleShotPending = false;
+            this.setChanged();
+            return;
+        }
+
+        // Hay espacio: colocar todos los resultados
         for (ItemStack result : results) {
-            boolean placed = false;
-            
-            // Intentar colocar en un slot vacío o stackeable
-            for (int slot = 12; slot <= 20; slot++) {
-                ItemStack existingItem = container.getItem(slot);
-                if (existingItem.isEmpty()) {
-                    container.setItem(slot, result.copy());
-                    placed = true;
-                    break;
-                } else if (ItemStack.isSameItemSameComponents(existingItem, result)) {
-                    int space = existingItem.getMaxStackSize() - existingItem.getCount();
-                    if (space > 0) {
-                        int transfer = Math.min(space, result.getCount());
-                        existingItem.grow(transfer);
-                        result.shrink(transfer);
-                        if (result.isEmpty()) {
-                            placed = true;
-                            break;
-                        }
-                    }
-                }
-            }
+            placeInOutput(result);
         }
 
-        // Consumir recursos si fue encantado
-        ItemEnchantments enchantments = itemInProcess.get(net.minecraft.core.component.DataComponents.ENCHANTMENTS);
-        if (enchantments != null && !enchantments.isEmpty()) {
-            if (!emptyBottle.isEmpty()) {
-                emptyBottle.shrink(1);
-            }
-            if (!book.isEmpty()) {
-                book.shrink(1);
-            }
+        // Consumir botellas/libros según cuántas unidades encantadas se procesaron
+        if (output.bottlesConsumed() > 0) {
+            emptyBottle.shrink(output.bottlesConsumed());
+        }
+        if (output.booksConsumed() > 0) {
+            book.shrink(output.booksConsumed());
         }
 
         // Limpiar slot de proceso
@@ -414,34 +453,17 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     /**
-     * Llamado cuando el bloque es destruido
-     * Devuelve todos los items de los contenedores
+     * ES: Reemplaza al viejo patrón "onRemove/setRemoved" de versiones anteriores
+     * de Minecraft. Desde 1.21.5, soltar el inventario al romper el bloque se
+     * maneja aquí, no en el Block. Este método NO se dispara por recarga de chunk
+     * (a diferencia de setRemoved()), solo cuando el bloque es removido de verdad.
      */
     @Override
-    public void setRemoved() {
-        // Soltar todos los items del contenedor
+    public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+        super.preRemoveSideEffects(pos, state);
         if (this.level != null && !this.level.isClientSide()) {
-            // Slots 0-8: Input Grid
-            for (int i = 0; i < 9; i++) {
-                Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(i));
-            }
-            
-            // Slot 9: Item en proceso
-            Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(9));
-            
-            // Slot 10: Botella vacía
-            Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(10));
-            
-            // Slot 11: Libro
-            Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(11));
-            
-            // Slots 12-20: Output Grid
-            for (int i = 12; i < 21; i++) {
-                Containers.dropItemStack(this.level, this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ(), container.getItem(i));
-            }
+            Containers.dropContents(this.level, pos, this.container);
         }
-        
-        super.setRemoved();
     }
 
     @Override
