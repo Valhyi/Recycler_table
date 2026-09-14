@@ -3,7 +3,6 @@ package com.valhyi.recyclertable.block;
 import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
 import com.valhyi.recyclertable.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
@@ -75,23 +74,5 @@ public class RecyclerBlock extends Block implements EntityBlock {
             }
         }
         return InteractionResult.SUCCESS;
-    }
-
-    /**
-     * ES: Solo se dispara cuando el bloque REALMENTE es reemplazado por otro bloque
-     * distinto (rotura, explosión, etc). NUNCA se dispara por recarga de chunk,
-     * a diferencia de BlockEntity#setRemoved(). Por eso la lógica de soltar el
-     * contenido del inventario vive aquí y no en el BlockEntity.
-     */
-    @Override
-    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
-        if (!state.is(newState.getBlock())) {
-            BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (blockEntity instanceof RecyclerTableBlockEntity recyclerEntity) {
-                Containers.dropContents(level, pos, recyclerEntity.getInventory());
-                level.updateNeighbourForOutputSignal(pos, this);
-            }
-            super.onRemove(state, level, pos, newState, isMoving);
-        }
     }
 }
