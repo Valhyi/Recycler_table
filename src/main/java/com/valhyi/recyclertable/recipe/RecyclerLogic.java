@@ -1,9 +1,11 @@
 package com.valhyi.recyclertable.recipe;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -114,6 +116,22 @@ public class RecyclerLogic {
         return samples;
     }
 
+    /**
+     * ES: Descarta recetas "auto-referenciales": si alguno de los ingredientes de la
+     * receta podría ser satisfecho por el propio item objetivo (ej. una receta que
+     * acepta "cualquier color de harness" vía tag, y el objetivo es uno de esos colores),
+     * usar esa receta como reversa produciría el mismo item como su propio ingrediente
+     * (bucle infinito / duplicación). En ese caso se descarta y se sigue buscando otra receta.
+     */
+    private static boolean recipeReferencesTarget(List<Ingredient> ingredients, ItemStack target) {
+        for (Ingredient ingredient : ingredients) {
+            if (ingredient.test(target)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ================= STONECUTTER =================
     private static RecipeMatch findInStonecutter(ItemStack target, RecipeManager recipeManager) {
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.STONECUTTING)) {
@@ -122,6 +140,7 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = stonecutterRecipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
+            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
             List<ItemStack> samples = sampleFrom(recipeIngredients);
             if (samples.get(0).isEmpty()) continue;
@@ -149,6 +168,7 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
+            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
             List<ItemStack> samples = sampleFrom(recipeIngredients);
             if (samples.stream().anyMatch(ItemStack::isEmpty)) continue;
@@ -186,6 +206,7 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
+            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
             List<ItemStack> samples = sampleFrom(recipeIngredients);
             if (samples.stream().anyMatch(ItemStack::isEmpty)) continue;
@@ -229,6 +250,7 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
+            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
             List<ItemStack> samples = sampleFrom(recipeIngredients);
             if (samples.get(0).isEmpty()) continue;
@@ -253,6 +275,7 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = smithingRecipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
+            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
             List<ItemStack> samples = sampleFrom(recipeIngredients);
             ItemStack template = samples.size() > 0 ? samples.get(0) : ItemStack.EMPTY;
