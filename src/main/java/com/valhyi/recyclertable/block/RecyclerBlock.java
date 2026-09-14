@@ -89,8 +89,15 @@ public class RecyclerBlock extends Block implements EntityBlock {
             if (!level.isClientSide()) {
                 BlockEntity blockEntity = level.getBlockEntity(pos);
                 if (blockEntity instanceof RecyclerBlockEntity recycler) {
-                    Containers.dropContents(level, pos, recycler);
-                    recycler.clearContent();
+                    // Reemplaza getItemHandler() por el getter o campo donde almacenes tu ItemStackHandler
+                    var inventory = recycler.getItemHandler(); 
+                    for (int i = 0; i < inventory.getSlots(); i++) {
+                        ItemStack stack = inventory.getStackInSlot(i);
+                        if (!stack.isEmpty()) {
+                            Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
+                            inventory.setStackInSlot(i, ItemStack.EMPTY);
+                        }
+                    }
                 }
             }
             super.onRemove(state, level, pos, newState, movedByPiston);
