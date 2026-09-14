@@ -158,65 +158,41 @@ public class RecyclerLogic {
     }
 
     // ================= CRAFTING (shaped / shapeless) =================
-private static boolean isSelfReferential(List<Ingredient> recipeIngredients, ItemStack target) {
-    ItemStack probe = new ItemStack(target.getItem());
-    for (Ingredient ingredient : recipeIngredients) {
-        if (ingredient.test(probe)) {
-            return true;
-        }
-    }
-    return false;
-}
+    private static List<ItemStack> findInCraftingBase(ItemStack target, RecipeManager recipeManager) {
+        for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
+            Recipe<?> recipe = holder.value();
 
-private static List<ItemStack> findInCraftingBase(ItemStack target, RecipeManager recipeManager) {
-    List<ItemStack> selfRefFallback = null;
-
-    for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
-        Recipe<?> recipe = holder.value();
-
-        if (!(recipe instanceof ShapedRecipe) && !(recipe instanceof ShapelessRecipe)) {
-            continue;
-        }
-
-        List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
-        if (recipeIngredients.isEmpty()) continue;
-
-        List<ItemStack> samples = sampleFrom(recipeIngredients);
-        if (samples.stream().anyMatch(ItemStack::isEmpty)) continue;
-
-        CraftingInput input = CraftingInput.of(samples.size(), 1, samples);
-
-        ItemStack output;
-        if (recipe instanceof ShapedRecipe shaped) {
-            output = shaped.assemble(input);
-        } else {
-            output = ((ShapelessRecipe) recipe).assemble(input);
-        }
-
-        if (output.isEmpty() || output.getItem() != target.getItem()) {
-            continue;
-        }
-
-        List<ItemStack> result = new ArrayList<>();
-        for (ItemStack sample : samples) {
-            ItemStack copy = sample.copy();
-            copy.setCount(1);
-            result.add(copy);
-        }
-
-        if (isSelfReferential(recipeIngredients, target)) {
-            // Guardar como respaldo, pero seguir buscando una receta "limpia"
-            if (selfRefFallback == null) {
-                selfRefFallback = result;
+            if (!(recipe instanceof ShapedRecipe) && !(recipe instanceof ShapelessRecipe)) {
+                continue;
             }
-            continue;
+
+            List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
+            if (recipeIngredients.isEmpty()) continue;
+
+            List<ItemStack> samples = sampleFrom(recipeIngredients);
+            if (samples.stream().anyMatch(ItemStack::isEmpty)) continue;
+
+            CraftingInput input = CraftingInput.of(samples.size(), 1, samples);
+
+            ItemStack output;
+            if (recipe instanceof ShapedRecipe shaped) {
+                output = shaped.assemble(input);
+            } else {
+                output = ((ShapelessRecipe) recipe).assemble(input);
+            }
+
+            if (!output.isEmpty() && output.getItem() == target.getItem()) {
+                List<ItemStack> result = new ArrayList<>();
+                for (ItemStack sample : samples) {
+                    ItemStack copy = sample.copy();
+                    copy.setCount(1);
+                    result.add(copy);
+                }
+                return result;
+            }
         }
-
-        return result; // Receta no auto-referencial: usar esta de inmediato
+        return null;
     }
-
-    return selfRefFallback; // Si no hubo otra opción, usar la de recoloreado
-}
 
     // ================= CRAFTING (transmute) =================
     private static RecipeMatch findInCraftingTransmute(ItemStack target, RecipeManager recipeManager) {
