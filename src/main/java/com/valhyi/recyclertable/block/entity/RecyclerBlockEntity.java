@@ -9,6 +9,7 @@ import net.minecraft.core.NonNullList;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -451,10 +452,19 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         }
     }
 
-    // ES: Ya no se sobreescribe setRemoved() aquí. Soltar el inventario al romper
-    // el bloque ahora se maneja en RecyclerBlock#onRemove(), porque setRemoved()
-    // también se dispara al recargar el chunk (no solo al romper el bloque), lo
-    // que causaba que los items se duplicaran cada vez que se entraba al mundo.
+    /**
+     * ES: Reemplaza al viejo patrón "onRemove/setRemoved" de versiones anteriores
+     * de Minecraft. Desde 1.21.5, soltar el inventario al romper el bloque se
+     * maneja aquí, no en el Block. Este método NO se dispara por recarga de chunk
+     * (a diferencia de setRemoved()), solo cuando el bloque es removido de verdad.
+     */
+    @Override
+    public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+        super.preRemoveSideEffects(pos, state);
+        if (this.level != null && !this.level.isClientSide()) {
+            Containers.dropContents(this.level, pos, this.container);
+        }
+    }
 
     @Override
     protected void saveAdditional(ValueOutput output) {
