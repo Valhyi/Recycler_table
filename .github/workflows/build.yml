@@ -1,8 +1,6 @@
 name: Build Mod Jar
 
 on:
-  push:
-    branches: [ "main", "master", "Main" ]
   workflow_dispatch:
 
 jobs:
