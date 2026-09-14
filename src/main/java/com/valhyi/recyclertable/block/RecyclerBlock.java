@@ -84,13 +84,18 @@ public class RecyclerBlock extends Block implements EntityBlock {
      * contenido del inventario vive aquí y no en el BlockEntity.
      */
     @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
-            BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (blockEntity instanceof RecyclerBlockEntity recycler) {
-                Containers.dropContents(level, pos, recycler.getContainer());
+            // Se asegura de ejecutar la expulsión solo en el servidor
+            if (!level.isClientSide()) {
+                BlockEntity blockEntity = level.getBlockEntity(pos);
+                if (blockEntity instanceof RecyclerBlockEntity recycler) {
+                    Containers.dropContents(level, pos, recycler.getContainer());
+                    // Limpia el inventario en memoria para evitar la duplicación
+                    recycler.getContainer().clearContent();
+                }
             }
+            super.onRemove(state, level, pos, newState, movedByPiston);
         }
-        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 }
