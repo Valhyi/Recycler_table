@@ -291,7 +291,12 @@ public class RecyclerLogic {
         int totalCount = stackInProcess.getCount();
         ItemStack singleSample = stackInProcess.copyWithCount(1);
 
-        ItemEnchantments enchantments = stackInProcess.get(DataComponents.ENCHANTMENTS);
+        // ES: Un enchanted_book guarda sus encantamientos en STORED_ENCHANTMENTS,
+        // no en ENCHANTMENTS (ese componente es para items equipables encantados).
+        boolean isBookSource = stackInProcess.is(Items.ENCHANTED_BOOK);
+        ItemEnchantments enchantments = isBookSource
+                ? stackInProcess.get(DataComponents.STORED_ENCHANTMENTS)
+                : stackInProcess.get(DataComponents.ENCHANTMENTS);
         boolean isEnchanted = enchantments != null && !enchantments.isEmpty();
 
         if (isEnchanted) {
@@ -303,21 +308,40 @@ public class RecyclerLogic {
                 return new RecyclingOutput(results, 0, 0);
             }
 
-            int processedUnits = Math.min(totalCount, Math.min(emptyBottle.getCount(), book.getCount()));
+            // ES: Si la fuente es un libro encantado con N encantamientos, se necesita
+            // 1 libro en blanco POR encantamiento (se separan en N libros individuales).
+            // Si la fuente es un item equipable, solo se necesita 1 libro en blanco
+            // (todos sus encantamientos se combinan en 1 solo libro de salida).
+            int enchantCount = enchantments.entrySet().size();
+            int booksNeededPerUnit = isBookSource ? Math.max(1, enchantCount) : 1;
+            int bottlesNeededPerUnit = 1;
+
+            int maxByBottles = emptyBottle.getCount() / bottlesNeededPerUnit;
+            int maxByBooks = book.getCount() / booksNeededPerUnit;
+            int processedUnits = Math.min(totalCount, Math.min(maxByBottles, maxByBooks));
+
             if (processedUnits <= 0) {
                 results.add(stackInProcess.copy());
                 return new RecyclingOutput(results, 0, 0);
             }
 
-            RecipeMatch match = getRecipeMatch(singleSample, level);
+            // ES: Un enchanted_book no tiene receta de crafteo reconstruible; nunca
+            // se devuelven materiales al reciclar uno.
+            RecipeMatch match = isBookSource ? null : getRecipeMatch(singleSample, level);
 
             for (int unit = 0; unit < processedUnits; unit++) {
-                if (match != null) {
+                if (!isBookSource && match != null) {
                     for (ItemStack ingredient : match.ingredients()) {
                         results.add(ingredient.copy());
                     }
                 }
-                createSingleEnchantmentBooks(enchantments, results, level);
+
+                if (isBookSource) {
+                    createSeparateEnchantmentBooks(enchantments, results);
+                } else {
+                    results.add(createCombinedEnchantmentBook(enchantments));
+                }
+
                 results.add(new ItemStack(Items.EXPERIENCE_BOTTLE));
             }
 
@@ -326,7 +350,9 @@ public class RecyclerLogic {
                 results.add(stackInProcess.copyWithCount(leftover));
             }
 
-            return new RecyclingOutput(results, processedUnits, processedUnits);
+            int bottlesConsumed = processedUnits * bottlesNeededPerUnit;
+            int booksConsumed = processedUnits * booksNeededPerUnit;
+            return new RecyclingOutput(results, bottlesConsumed, booksConsumed);
         }
 
         RecipeMatch match = getRecipeMatch(singleSample, level);
@@ -357,18 +383,32 @@ public class RecyclerLogic {
         return new RecyclingOutput(results, 0, 0);
     }
 
-    private static void createSingleEnchantmentBooks(ItemEnchantments sourceEnchantments, List<ItemStack> results, Level level) {
+    /**
+     * ES: Crea 1 solo libro encantado con TODOS los encantamientos de la fuente
+     * (usado cuando la fuente reciclada NO es en sí misma un libro, ej. una espada).
+     */
+    private static ItemStack createCombinedEnchantmentBook(ItemEnchantments sourceEnchantments) {
+        ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
+        enchantedBook.set(DataComponents.STORED_ENCHANTMENTS, sourceEnchantments);
+        return enchantedBook;
+    }
+
+    /**
+     * ES: Separa cada encantamiento de la fuente en su propio libro encantado
+     * (usado cuando la fuente reciclada YA es un enchanted_book con varios encantamientos).
+     */
+    private static void createSeparateEnchantmentBooks(ItemEnchantments sourceEnchantments, List<ItemStack> results) {
         if (sourceEnchantments != null && !sourceEnchantments.isEmpty()) {
             for (var entry : sourceEnchantments.entrySet()) {
                 var enchantment = entry.getKey();
-                int level_value = entry.getIntValue();
+                int levelValue = entry.getIntValue();
 
                 ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
 
                 ItemEnchantments.Mutable mutableEnchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-                mutableEnchantments.set(enchantment, level_value);
+                mutableEnchantments.set(enchantment, levelValue);
 
-                enchantedBook.set(DataComponents.ENCHANTMENTS, mutableEnchantments.toImmutable());
+                enchantedBook.set(DataComponents.STORED_ENCHANTMENTS, mutableEnchantments.toImmutable());
                 results.add(enchantedBook);
             }
         }
