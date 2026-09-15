@@ -209,6 +209,8 @@ public class RecyclerLogic {
     // sin importar su clase interna.
     @SuppressWarnings("unchecked")
     private static RecipeMatch findInCrafting(ItemStack target, RecipeManager recipeManager) {
+        RecipeMatch fallbackDyedMatch = null;
+
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
             Recipe<?> recipe = holder.value();
 
@@ -238,10 +240,24 @@ public class RecyclerLogic {
                     copy.setCount(1);
                     result.add(copy);
                 }
-                return new RecipeMatch(result, output.getCount());
+                RecipeMatch match = new RecipeMatch(result, output.getCount());
+
+                // ES: Las recetas de "reteñido" (ej. minecraft:crafting_dyed: cualquier
+                // color del item + tinte -> nuevo color, usado por camas y arneses) producen
+                // el item objetivo pero usando OTRA unidad del mismo tipo de item como
+                // ingrediente (ej. cama blanca + tinte rojo -> cama roja). Eso no son
+                // materiales base reales, es solo un reteñido. Se prioriza cualquier receta
+                // que NO sea de reteñido (ej. lana + tablas -> cama) y el reteñido se usa
+                // solo como último recurso si no hay otra opción.
+                boolean isRecolorRecipe = recipe.getClass().getSimpleName().toLowerCase().contains("dyed");
+                if (!isRecolorRecipe) {
+                    return match;
+                } else if (fallbackDyedMatch == null) {
+                    fallbackDyedMatch = match;
+                }
             }
         }
-        return null;
+        return fallbackDyedMatch;
     }
     // ================= HORNOS (smelting / blasting / smoking / campfire) =================
     private static RecipeMatch findInCooking(ItemStack target, RecipeManager recipeManager) {
