@@ -119,7 +119,7 @@ public class RecyclerLogic {
     /**
      * ES: Descarta recetas "auto-referenciales": si alguno de los ingredientes de la
      * receta podría ser satisfecho por el propio item objetivo (ej. una receta que
-     * acepta "cualquier color de harness" vía tag, y el objetivo es uno de esos colores),
+     * acepta "cualquier color de cama/arnés" vía tag, y el objetivo es uno de esos colores),
      * usar esa receta como reversa produciría el mismo item como su propio ingrediente
      * (bucle infinito / duplicación). En ese caso se descarta y se sigue buscando otra receta.
      */
@@ -158,7 +158,7 @@ public class RecyclerLogic {
     }
 
     // ================= CRAFTING (shaped / shapeless) =================
-    private static List<ItemStack> findInCraftingBase(ItemStack target, RecipeManager recipeManager) {
+    private static RecipeMatch findInCraftingBase(ItemStack target, RecipeManager recipeManager) {
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
             Recipe<?> recipe = holder.value();
 
@@ -168,6 +168,11 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
+            // FIX: antes faltaba este chequeo aquí (sí estaba en las otras 4 búsquedas).
+            // Sin él, recetas de "reteñido" (tinte + cualquier color del mismo item vía tag)
+            // matcheaban porque la tag acepta al propio item objetivo como ingrediente.
+            // Esto es lo que causaba el bug en camas y arneses.
+            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
             List<ItemStack> samples = sampleFrom(recipeIngredients);
             if (samples.stream().anyMatch(ItemStack::isEmpty)) continue;
@@ -188,7 +193,9 @@ public class RecyclerLogic {
                     copy.setCount(1);
                     result.add(copy);
                 }
-                return result;
+                // FIX: antes se retornaba `result` (List<ItemStack>) directamente, lo cual
+                // no coincide con el tipo RecipeMatch que espera findByPriority.
+                return new RecipeMatch(result, output.getCount());
             }
         }
         return null;
