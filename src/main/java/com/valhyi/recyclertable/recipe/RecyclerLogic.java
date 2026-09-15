@@ -152,14 +152,17 @@ public class RecyclerLogic {
         return null;
     }
 
-    // ================= CRAFTING (shaped / shapeless) =================
-    private static RecipeMatch findInCraftingBase(ItemStack target, RecipeManager recipeManager) {
+        // ================= CRAFTING (genérico: shaped, shapeless, transmute, dyed, etc.) =================
+    // ES: En vez de comprobar tipos concretos (ShapedRecipe, ShapelessRecipe, TransmuteRecipe...),
+    // se maneja de forma genérica porque el juego sigue agregando nuevas subclases de receta de
+    // crafteo (ej. "minecraft:crafting_dyed", usado para reteñir camas y arneses). Comprobar solo
+    // tipos conocidos dejaba esas recetas invisibles para el reciclador. Aquí se intenta ensamblar
+    // CUALQUIER receta registrada bajo RecipeType.CRAFTING usando su propio método assemble(),
+    // sin importar su clase interna.
+    @SuppressWarnings("unchecked")
+    private static RecipeMatch findInCrafting(ItemStack target, RecipeManager recipeManager) {
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
             Recipe<?> recipe = holder.value();
-
-            if (!(recipe instanceof ShapedRecipe) && !(recipe instanceof ShapelessRecipe)) {
-                continue;
-            }
 
             List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
@@ -170,43 +173,16 @@ public class RecyclerLogic {
             CraftingInput input = CraftingInput.of(samples.size(), 1, samples);
 
             ItemStack output;
-            if (recipe instanceof ShapedRecipe shaped) {
-                output = shaped.assemble(input);
-            } else {
-                output = ((ShapelessRecipe) recipe).assemble(input);
-            }
-
-            if (!output.isEmpty() && output.getItem() == target.getItem()) {
-                List<ItemStack> result = new ArrayList<>();
-                for (ItemStack sample : samples) {
-                    ItemStack copy = sample.copy();
-                    copy.setCount(1);
-                    result.add(copy);
-                }
-                return new RecipeMatch(result, output.getCount());
-            }
-        }
-        return null;
-    }
-
-    // ================= CRAFTING (transmute) =================
-    private static RecipeMatch findInCraftingTransmute(ItemStack target, RecipeManager recipeManager) {
-        for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
-            Recipe<?> recipe = holder.value();
-
-            if (!(recipe instanceof TransmuteRecipe)) {
+            try {
+                // ES: Cast genérico: toda receta bajo RecipeType.CRAFTING implementa
+                // Recipe<CraftingInput>, sin importar la subclase concreta.
+                output = ((Recipe<CraftingInput>) recipe).assemble(input);
+            } catch (Exception ex) {
+                // ES: Alguna receta especial puede lanzar excepción con un input sintético
+                // que no coincide exactamente con lo que espera; se ignora y se sigue buscando.
                 continue;
             }
 
-            List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
-            if (recipeIngredients.isEmpty()) continue;
-
-            List<ItemStack> samples = sampleFromExcluding(recipeIngredients, target.getItem());
-            if (samples.stream().anyMatch(ItemStack::isEmpty)) continue;
-
-            CraftingInput input = CraftingInput.of(samples.size(), 1, samples);
-            ItemStack output = ((TransmuteRecipe) recipe).assemble(input);
-
             if (!output.isEmpty() && output.getItem() == target.getItem()) {
                 List<ItemStack> result = new ArrayList<>();
                 for (ItemStack sample : samples) {
@@ -219,7 +195,6 @@ public class RecyclerLogic {
         }
         return null;
     }
-
     // ================= HORNOS (smelting / blasting / smoking / campfire) =================
     private static RecipeMatch findInCooking(ItemStack target, RecipeManager recipeManager) {
         RecipeMatch result;
