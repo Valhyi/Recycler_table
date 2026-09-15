@@ -95,10 +95,7 @@ public class RecyclerLogic {
         found = findInCooking(target, recipeManager);
         if (found != null) return found;
 
-        found = findInCraftingBase(target, recipeManager);
-        if (found != null) return found;
-
-        found = findInCraftingTransmute(target, recipeManager);
+        found = findInCrafting(target, recipeManager);
         if (found != null) return found;
 
         found = findInSmithing(target, recipeManager);
