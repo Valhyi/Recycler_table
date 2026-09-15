@@ -250,6 +250,17 @@ public class RecyclerLogic {
                 // que NO sea de reteñido (ej. lana + tablas -> cama) y el reteñido se usa
                 // solo como último recurso si no hay otra opción.
                 boolean isRecolorRecipe = recipe.getClass().getSimpleName().toLowerCase().contains("dyed");
+
+                String debugPath = BuiltInRegistries.ITEM.getKey(target.getItem()).getPath();
+                if (debugPath.contains("bed") || debugPath.contains("harness")) {
+                    LOGGER.info("[RecyclerTable DEBUG] findInCrafting match para " + debugPath
+                            + " | recipeId=" + holder.id()
+                            + " | javaClass=" + recipe.getClass().getName()
+                            + " | simpleName=" + recipe.getClass().getSimpleName()
+                            + " | isRecolorRecipe=" + isRecolorRecipe
+                            + " | ingredientes=" + result);
+                }
+
                 if (!isRecolorRecipe) {
                     return match;
                 } else if (fallbackDyedMatch == null) {
