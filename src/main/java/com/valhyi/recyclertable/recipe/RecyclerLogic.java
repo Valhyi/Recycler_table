@@ -75,9 +75,19 @@ public class RecyclerLogic {
             return null;
         }
 
+        // ES: DEBUG TEMPORAL - trazar el estado exacto de camas/arneses antes de
+        // cualquier corte temprano, para confirmar si cargan DYED_COLOR.
+        String debugPath = BuiltInRegistries.ITEM.getKey(inputStack.getItem()).getPath();
+        boolean isDebugTarget = debugPath.contains("bed") || debugPath.contains("harness");
+
         // ES: Items teñidos (armadura de cuero, etc.) no devuelven materiales al reciclar.
         // Si están encantados, el encantamiento se extrae por otra vía (ver processRecycling).
         DyedItemColor dyedColor = inputStack.get(DataComponents.DYED_COLOR);
+        if (isDebugTarget) {
+            System.out.println("[RecyclerTable DEBUG] getRecipeMatch para: " + debugPath
+                    + " | DYED_COLOR=" + (dyedColor != null ? dyedColor.rgb() : "null")
+                    + " | blacklisted=" + isBlacklisted(inputStack));
+        }
         if (dyedColor != null) {
             return null;
         }
