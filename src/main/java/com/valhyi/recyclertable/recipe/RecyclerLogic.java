@@ -101,7 +101,41 @@ public class RecyclerLogic {
         found = findInSmithing(target, recipeManager);
         if (found != null) return found;
 
+        // ES: DEBUG TEMPORAL - si no se encontró nada y el item es cama/arnés,
+        // volcar a consola qué recetas existen con ese nombre y de qué tipo/clase son.
+        debugScanRecipes(target, recipeManager);
+
         return null;
+    }
+
+    /**
+     * ES: DEBUG TEMPORAL - imprime en consola el tipo y clase real de cualquier
+     * receta registrada cuyo ID contenga "bed" o "harness", para diagnosticar
+     * por qué el reciclador no las encuentra. Borrar cuando el bug esté resuelto.
+     */
+    private static void debugScanRecipes(ItemStack target, RecipeManager recipeManager) {
+        String path = BuiltInRegistries.ITEM.getKey(target.getItem()).getPath();
+        if (!path.contains("bed") && !path.contains("harness")) {
+            return;
+        }
+
+        System.out.println("[RecyclerTable DEBUG] Sin match para: " + path);
+        for (RecipeHolder<?> holder : recipeManager.getRecipes()) {
+            String id = holder.id().location().toString();
+            if (id.contains("bed") || id.contains("harness")) {
+                Recipe<?> recipe = holder.value();
+                boolean ingredientsEmpty;
+                try {
+                    ingredientsEmpty = recipe.placementInfo().ingredients().isEmpty();
+                } catch (Exception ex) {
+                    ingredientsEmpty = true;
+                }
+                System.out.println("[RecyclerTable DEBUG]   id=" + id
+                        + " | recipeType=" + recipe.getType()
+                        + " | javaClass=" + recipe.getClass().getName()
+                        + " | ingredientsEmpty=" + ingredientsEmpty);
+            }
+        }
     }
 
     /**
