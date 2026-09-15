@@ -121,7 +121,7 @@ public class RecyclerLogic {
 
         System.out.println("[RecyclerTable DEBUG] Sin match para: " + path);
         for (RecipeHolder<?> holder : recipeManager.getRecipes()) {
-            String id = holder.id().location().toString();
+            String id = holder.id().toString();
             if (id.contains("bed") || id.contains("harness")) {
                 Recipe<?> recipe = holder.value();
                 boolean ingredientsEmpty;
