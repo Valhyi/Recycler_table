@@ -242,26 +242,26 @@ public class RecyclerLogic {
                 }
                 RecipeMatch match = new RecipeMatch(result, output.getCount());
 
-                // ES: Las recetas de "reteñido" (ej. minecraft:crafting_dyed: cualquier
-                // color del item + tinte -> nuevo color, usado por camas y arneses) producen
-                // el item objetivo pero usando OTRA unidad del mismo tipo de item como
-                // ingrediente (ej. cama blanca + tinte rojo -> cama roja). Eso no son
-                // materiales base reales, es solo un reteñido. Se prioriza cualquier receta
-                // que NO sea de reteñido (ej. lana + tablas -> cama) y el reteñido se usa
-                // solo como último recurso si no hay otra opción.
-                boolean isRecolorRecipe = recipe.getClass().getSimpleName().toLowerCase().contains("dyed");
+                // ES: Si algún ingrediente de la receta es de la MISMA clase de Item que
+                // el objetivo (ej. reciclar una cama roja y que un ingrediente sea
+                // "cualquier otra cama"), es una receta de reteñido/variante, no de
+                // materiales base reales (ej. tinte + cama blanca -> cama roja). Esto
+                // reemplaza al chequeo anterior por nombre de clase de receta (que fallaba
+                // porque tanto la receta de reteñido como la de materiales base son ambas
+                // ShapelessRecipe, indistinguibles por tipo). Se prioriza cualquier receta
+                // que NO tenga este patrón; el reteñido queda como último recurso.
+                boolean referencesSameFamily = samples.stream()
+                        .anyMatch(s -> s.getItem().getClass() == target.getItem().getClass());
 
                 String debugPath = BuiltInRegistries.ITEM.getKey(target.getItem()).getPath();
                 if (debugPath.contains("bed") || debugPath.contains("harness")) {
                     LOGGER.info("[RecyclerTable DEBUG] findInCrafting match para " + debugPath
                             + " | recipeId=" + holder.id()
-                            + " | javaClass=" + recipe.getClass().getName()
-                            + " | simpleName=" + recipe.getClass().getSimpleName()
-                            + " | isRecolorRecipe=" + isRecolorRecipe
+                            + " | referencesSameFamily=" + referencesSameFamily
                             + " | ingredientes=" + result);
                 }
 
-                if (!isRecolorRecipe) {
+                if (!referencesSameFamily) {
                     return match;
                 } else if (fallbackDyedMatch == null) {
                     fallbackDyedMatch = match;
