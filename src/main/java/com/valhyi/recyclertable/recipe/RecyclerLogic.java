@@ -26,11 +26,18 @@ import net.minecraft.world.item.crafting.StonecutterRecipe;
 import net.minecraft.world.item.crafting.TransmuteRecipe;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class RecyclerLogic {
+
+    // ES: Logger real del juego (en vez de System.out.println), para que los
+    // mensajes de debug aparezcan en latest.log sin importar el launcher usado
+    // (Lunar Client no siempre captura System.out).
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     /**
      * ES: Tag de datapack para excluir items del reciclaje por completo
@@ -84,7 +91,7 @@ public class RecyclerLogic {
         // Si están encantados, el encantamiento se extrae por otra vía (ver processRecycling).
         DyedItemColor dyedColor = inputStack.get(DataComponents.DYED_COLOR);
         if (isDebugTarget) {
-            System.out.println("[RecyclerTable DEBUG] getRecipeMatch para: " + debugPath
+            LOGGER.info("[RecyclerTable DEBUG] getRecipeMatch para: " + debugPath
                     + " | DYED_COLOR=" + (dyedColor != null ? dyedColor.rgb() : "null")
                     + " | blacklisted=" + isBlacklisted(inputStack));
         }
@@ -129,7 +136,7 @@ public class RecyclerLogic {
             return;
         }
 
-        System.out.println("[RecyclerTable DEBUG] Sin match para: " + path);
+        LOGGER.info("[RecyclerTable DEBUG] Sin match para: " + path);
         for (RecipeHolder<?> holder : recipeManager.getRecipes()) {
             String id = holder.id().toString();
             if (id.contains("bed") || id.contains("harness")) {
@@ -140,7 +147,7 @@ public class RecyclerLogic {
                 } catch (Exception ex) {
                     ingredientsEmpty = true;
                 }
-                System.out.println("[RecyclerTable DEBUG]   id=" + id
+                LOGGER.info("[RecyclerTable DEBUG]   id=" + id
                         + " | recipeType=" + recipe.getType()
                         + " | javaClass=" + recipe.getClass().getName()
                         + " | ingredientsEmpty=" + ingredientsEmpty);
