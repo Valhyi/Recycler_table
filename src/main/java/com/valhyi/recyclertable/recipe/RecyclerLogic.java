@@ -107,29 +107,25 @@ public class RecyclerLogic {
         return null;
     }
 
-    private static List<ItemStack> sampleFrom(List<Ingredient> ingredients) {
+    /**
+     * ES: Toma 1 muestra de cada ingrediente de la receta, EVITANDO elegir al propio
+     * item objetivo como muestra cuando el ingrediente es una tag/lista amplia que
+     * también lo acepta (ej. "cualquier color de cama/shulker/arnés/saco" al reteñir).
+     * Esto es clave para recetas de "reteñido" (dye + item_de_cualquier_color ->
+     * item_del_nuevo_color): sin esto, se elegiría al propio objetivo como su ingrediente,
+     * causando duplicación o loops. Si el ingrediente de verdad SOLO acepta al objetivo
+     * (loop real, sin alternativa), esa posición queda vacía (ItemStack.EMPTY) y el
+     * llamador debe descartar la receta.
+     */
+    private static List<ItemStack> sampleFromExcluding(List<Ingredient> ingredients, Item excludeItem) {
         List<ItemStack> samples = new ArrayList<>();
         for (Ingredient ingredient : ingredients) {
-            var first = ingredient.items().findFirst();
-            samples.add(first.isPresent() ? new ItemStack(first.get().value()) : ItemStack.EMPTY);
+            var match = ingredient.items()
+                    .filter(holder -> holder.value() != excludeItem)
+                    .findFirst();
+            samples.add(match.isPresent() ? new ItemStack(match.get().value()) : ItemStack.EMPTY);
         }
         return samples;
-    }
-
-    /**
-     * ES: Descarta recetas "auto-referenciales": si alguno de los ingredientes de la
-     * receta podría ser satisfecho por el propio item objetivo (ej. una receta que
-     * acepta "cualquier color de cama/arnés" vía tag, y el objetivo es uno de esos colores),
-     * usar esa receta como reversa produciría el mismo item como su propio ingrediente
-     * (bucle infinito / duplicación). En ese caso se descarta y se sigue buscando otra receta.
-     */
-    private static boolean recipeReferencesTarget(List<Ingredient> ingredients, ItemStack target) {
-        for (Ingredient ingredient : ingredients) {
-            if (ingredient.test(target)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     // ================= STONECUTTER =================
@@ -140,9 +136,8 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = stonecutterRecipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
-            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
-            List<ItemStack> samples = sampleFrom(recipeIngredients);
+            List<ItemStack> samples = sampleFromExcluding(recipeIngredients, target.getItem());
             if (samples.get(0).isEmpty()) continue;
 
             ItemStack output = stonecutterRecipe.assemble(new SingleRecipeInput(samples.get(0)));
@@ -168,13 +163,8 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
-            // FIX: antes faltaba este chequeo aquí (sí estaba en las otras 4 búsquedas).
-            // Sin él, recetas de "reteñido" (tinte + cualquier color del mismo item vía tag)
-            // matcheaban porque la tag acepta al propio item objetivo como ingrediente.
-            // Esto es lo que causaba el bug en camas y arneses.
-            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
-            List<ItemStack> samples = sampleFrom(recipeIngredients);
+            List<ItemStack> samples = sampleFromExcluding(recipeIngredients, target.getItem());
             if (samples.stream().anyMatch(ItemStack::isEmpty)) continue;
 
             CraftingInput input = CraftingInput.of(samples.size(), 1, samples);
@@ -193,8 +183,6 @@ public class RecyclerLogic {
                     copy.setCount(1);
                     result.add(copy);
                 }
-                // FIX: antes se retornaba `result` (List<ItemStack>) directamente, lo cual
-                // no coincide con el tipo RecipeMatch que espera findByPriority.
                 return new RecipeMatch(result, output.getCount());
             }
         }
@@ -212,9 +200,8 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
-            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
-            List<ItemStack> samples = sampleFrom(recipeIngredients);
+            List<ItemStack> samples = sampleFromExcluding(recipeIngredients, target.getItem());
             if (samples.stream().anyMatch(ItemStack::isEmpty)) continue;
 
             CraftingInput input = CraftingInput.of(samples.size(), 1, samples);
@@ -256,9 +243,8 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
-            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
-            List<ItemStack> samples = sampleFrom(recipeIngredients);
+            List<ItemStack> samples = sampleFromExcluding(recipeIngredients, target.getItem());
             if (samples.get(0).isEmpty()) continue;
 
             ItemStack output = recipe.assemble(new SingleRecipeInput(samples.get(0)));
@@ -281,9 +267,8 @@ public class RecyclerLogic {
 
             List<Ingredient> recipeIngredients = smithingRecipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
-            if (recipeReferencesTarget(recipeIngredients, target)) continue;
 
-            List<ItemStack> samples = sampleFrom(recipeIngredients);
+            List<ItemStack> samples = sampleFromExcluding(recipeIngredients, target.getItem());
             ItemStack template = samples.size() > 0 ? samples.get(0) : ItemStack.EMPTY;
             ItemStack base = samples.size() > 1 ? samples.get(1) : ItemStack.EMPTY;
             ItemStack addition = samples.size() > 2 ? samples.get(2) : ItemStack.EMPTY;
