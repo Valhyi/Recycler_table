@@ -22,8 +22,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     // ES: Tamaño y separación del panel de tags respecto al GUI principal.
     // Ajusta estos valores según el tamaño real de tu textura tag_gui.png.
-    private static final int TAG_PANEL_GAP = 4;
-    private static final int TAG_PANEL_WIDTH = 80;
+    private static final int TAG_PANEL_GAP = 2;
+    private static final int TAG_PANEL_WIDTH = 90;
     private static final int TAG_PANEL_HEIGHT = 166;
 
     private static final WidgetSprites PLAY_SPRITES = new WidgetSprites(
