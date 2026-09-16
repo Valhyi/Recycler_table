@@ -97,8 +97,11 @@ public class MultiRecipeScanner {
             }
         }
 
-        // ES: Solo interesan los items con 2+ recetas distintas (conflicto real).
-        found.entrySet().removeIf(entry -> entry.getValue().size() < 2);
+        // ES: Solo interesan los items con 2+ recetas distintas (conflicto real),
+        // y que no estén ya en la blacklist (esos nunca se reciclan, no tiene
+        // sentido mostrarlos en el panel de configuración).
+        found.entrySet().removeIf(entry -> entry.getValue().size() < 2
+                || new ItemStack(entry.getKey()).is(RecyclerLogic.BLACKLISTED_FROM_RECYCLING));
 
         multiRecipeItems = found;
         scanned = true;
