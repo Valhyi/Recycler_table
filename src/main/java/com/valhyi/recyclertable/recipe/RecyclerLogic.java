@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class RecyclerLogic {
 
@@ -100,10 +101,10 @@ public class RecyclerLogic {
         }
 
         RecipeManager recipeManager = level.getServer().getRecipeManager();
-        return findByPriority(inputStack, recipeManager);
+        return findByPriority(inputStack, recipeManager, level);
     }
 
-    private static RecipeMatch findByPriority(ItemStack target, RecipeManager recipeManager) {
+    private static RecipeMatch findByPriority(ItemStack target, RecipeManager recipeManager, Level level) {
         RecipeMatch found;
 
         found = findInStonecutter(target, recipeManager);
@@ -112,7 +113,7 @@ public class RecyclerLogic {
         found = findInCooking(target, recipeManager);
         if (found != null) return found;
 
-        found = findInCrafting(target, recipeManager);
+        found = findInCrafting(target, recipeManager, level);
         if (found != null) return found;
 
         found = findInSmithing(target, recipeManager);
@@ -207,9 +208,15 @@ public class RecyclerLogic {
     // tipos conocidos dejaba esas recetas invisibles para el reciclador. Aquí se intenta ensamblar
     // CUALQUIER receta registrada bajo RecipeType.CRAFTING usando su propio método assemble(),
     // sin importar su clase interna.
+    //
+    // ES: Junta TODAS las coincidencias reales (no de reteñido) en vez de devolver la
+    // primera. Si el jugador configuró una preferencia en el panel de tags para este
+    // item (ver RecyclerPreferences), se usa esa; si no, se mantiene el comportamiento
+    // anterior (primera coincidencia encontrada).
     @SuppressWarnings("unchecked")
-    private static RecipeMatch findInCrafting(ItemStack target, RecipeManager recipeManager) {
+    private static RecipeMatch findInCrafting(ItemStack target, RecipeManager recipeManager, Level level) {
         RecipeMatch fallbackDyedMatch = null;
+        List<RecipeMatch> realMatches = new ArrayList<>();
 
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
             Recipe<?> recipe = holder.value();
@@ -261,13 +268,42 @@ public class RecyclerLogic {
                 }
 
                 if (!referencesSameFamily) {
-                    return match;
+                    realMatches.add(match);
                 } else if (fallbackDyedMatch == null) {
                     fallbackDyedMatch = match;
                 }
             }
         }
+
+        if (!realMatches.isEmpty()) {
+            RecipeMatch preferred = applyPreference(target.getItem(), realMatches, level);
+            return preferred != null ? preferred : realMatches.get(0);
+        }
         return fallbackDyedMatch;
+    }
+
+    /**
+     * ES: Si el jugador configuró en el panel de tags cuál receta prefiere para
+     * este item (ver RecyclerPreferences), busca entre las coincidencias reales
+     * la que tenga esa misma firma de ingredientes (mismos items, mismo orden).
+     * Si no hay preferencia guardada, o el server no está disponible, devuelve
+     * null y el llamador usa la primera coincidencia (comportamiento anterior).
+     */
+    private static RecipeMatch applyPreference(Item target, List<RecipeMatch> candidates, Level level) {
+        if (level == null || level.getServer() == null) return null;
+
+        RecyclerPreferences prefs = RecyclerPreferences.get(level.getServer());
+        Optional<List<Item>> preferred = prefs.getPreference(target);
+        if (preferred.isEmpty()) return null;
+
+        List<Item> wanted = preferred.get();
+        for (RecipeMatch candidate : candidates) {
+            List<Item> signature = candidate.ingredients().stream().map(ItemStack::getItem).toList();
+            if (signature.equals(wanted)) {
+                return candidate;
+            }
+        }
+        return null;
     }
     // ================= HORNOS (smelting / blasting / smoking / campfire) =================
     private static RecipeMatch findInCooking(ItemStack target, RecipeManager recipeManager) {
