@@ -16,9 +16,15 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     private static final Identifier TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui.png");
 
-    // ES: Textura del panel de tags. Por ahora usa las mismas dimensiones
-    // (176x166) que el panel principal para no complicar el layout de slots.
-    private static final Identifier TAG_TEXTURE = RecyclerTable.resLoc("textures/gui/tag_gui.png");
+    // ES: Textura del panel de tags que se dibuja PEGADO al costado derecho
+    // del GUI principal (no reemplaza nada, es un panel extra).
+    private static final Identifier TAG_TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui_tag.png");
+
+    // ES: Tamaño y separación del panel de tags respecto al GUI principal.
+    // Ajusta estos valores según el tamaño real de tu textura tag_gui.png.
+    private static final int TAG_PANEL_GAP = 4;
+    private static final int TAG_PANEL_WIDTH = 80;
+    private static final int TAG_PANEL_HEIGHT = 166;
 
     private static final WidgetSprites PLAY_SPRITES = new WidgetSprites(
             RecyclerTable.resLoc("widget/play_button"),
@@ -41,7 +47,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     );
 
     // ES: Sprite provisional del botón de configuración/tags.
-    // Ajusta los nombres si tus archivos en assets/.../textures/gui/sprites/widget/
+    // Ajusta los nombres si tus archivos en textures/gui/sprites/widget/
     // se llaman distinto.
     private static final WidgetSprites CONFIG_SPRITES = new WidgetSprites(
             RecyclerTable.resLoc("widget/config_button"),
@@ -53,9 +59,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private ImageButton autoOffButton;
     private ImageButton autoOnButton;
     private ImageButton configButton;
-    private ImageButton backButton;
 
-    // ES: true cuando se está mostrando el panel de tags en vez del panel normal
+    // ES: true cuando el panel de tags está expandido al costado
     private boolean showingTagsPanel = false;
 
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
@@ -95,26 +100,14 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
-        // ES: Botón de config, arriba a la derecha del panel
+        // ES: Botón de tags/config, arriba a la derecha del panel principal.
+        // Al tocarlo alterna el panel lateral (no cierra ni reabre el menú).
         this.configButton = this.addRenderableWidget(new ImageButton(
                 this.leftPos + this.imageWidth - 20, this.topPos + 4, 14, 14, CONFIG_SPRITES,
-                button -> setTagsPanelVisible(true),
+                button -> this.showingTagsPanel = !this.showingTagsPanel,
                 Component.translatable("gui.recyclertable.config_button")
         ));
 
-        // ES: Botón para volver, mismo lugar, solo visible en el panel de tags.
-        // Reusa los sprites de config por ahora; cámbialos si quieres uno distinto.
-        this.backButton = this.addRenderableWidget(new ImageButton(
-                this.leftPos + this.imageWidth - 20, this.topPos + 4, 14, 14, CONFIG_SPRITES,
-                button -> setTagsPanelVisible(false),
-                Component.translatable("gui.recyclertable.config_button")
-        ));
-
-        updateButtonStates();
-    }
-
-    private void setTagsPanelVisible(boolean visible) {
-        this.showingTagsPanel = visible;
         updateButtonStates();
     }
 
@@ -128,14 +121,12 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         boolean autoActive = this.menu.isAutoActive();
         boolean processing = this.menu.isProcessing();
 
-        // ES: Mientras se muestra el panel de tags, se ocultan los controles
-        // del reciclador normal (play/auto/config) y solo se ve el botón de volver.
-        if (this.playIdleButton != null) this.playIdleButton.visible = !showingTagsPanel && !processing;
-        if (this.playActiveButton != null) this.playActiveButton.visible = !showingTagsPanel && processing;
-        if (this.autoOffButton != null) this.autoOffButton.visible = !showingTagsPanel && !autoActive;
-        if (this.autoOnButton != null) this.autoOnButton.visible = !showingTagsPanel && autoActive;
-        if (this.configButton != null) this.configButton.visible = !showingTagsPanel;
-        if (this.backButton != null) this.backButton.visible = showingTagsPanel;
+        if (this.playIdleButton != null) this.playIdleButton.visible = !processing;
+        if (this.playActiveButton != null) this.playActiveButton.visible = processing;
+        if (this.autoOffButton != null) this.autoOffButton.visible = !autoActive;
+        if (this.autoOnButton != null) this.autoOnButton.visible = autoActive;
+        // ES: El botón de config queda siempre visible: sirve tanto para
+        // abrir como para cerrar el panel lateral.
     }
 
     private void sendButtonPacket(RecyclerButtonPayload.ButtonType type) {
@@ -147,8 +138,12 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     @Override
     public void extractBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
         super.extractBackground(guiGraphics, mouseX, mouseY, partialTicks);
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F, this.imageWidth, this.imageHeight, 256, 256);
 
-        Identifier textureToDraw = showingTagsPanel ? TAG_TEXTURE : TEXTURE;
-        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, textureToDraw, this.leftPos, this.topPos, 0.0F, 0.0F, this.imageWidth, this.imageHeight, 256, 256);
+        if (showingTagsPanel) {
+            int panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
+            int panelY = this.topPos;
+            guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TAG_TEXTURE, panelX, panelY, 0.0F, 0.0F, TAG_PANEL_WIDTH, TAG_PANEL_HEIGHT, 256, 256);
+        }
     }
 }
