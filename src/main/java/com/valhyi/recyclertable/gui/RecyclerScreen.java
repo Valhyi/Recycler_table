@@ -16,6 +16,10 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     private static final Identifier TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui.png");
 
+    // ES: Textura del panel de tags. Por ahora usa las mismas dimensiones
+    // (176x166) que el panel principal para no complicar el layout de slots.
+    private static final Identifier TAG_TEXTURE = RecyclerTable.resLoc("textures/gui/tag_gui.png");
+
     private static final WidgetSprites PLAY_SPRITES = new WidgetSprites(
             RecyclerTable.resLoc("widget/play_button"),
             RecyclerTable.resLoc("widget/play_button_highlighted")
@@ -36,10 +40,23 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             RecyclerTable.resLoc("widget/auto_button_active_highlighted")
     );
 
+    // ES: Sprite provisional del botón de configuración/tags.
+    // Ajusta los nombres si tus archivos en assets/.../textures/gui/sprites/widget/
+    // se llaman distinto.
+    private static final WidgetSprites CONFIG_SPRITES = new WidgetSprites(
+            RecyclerTable.resLoc("widget/config_button"),
+            RecyclerTable.resLoc("widget/config_button_highlighted")
+    );
+
     private ImageButton playIdleButton;
     private ImageButton playActiveButton;
     private ImageButton autoOffButton;
     private ImageButton autoOnButton;
+    private ImageButton configButton;
+    private ImageButton backButton;
+
+    // ES: true cuando se está mostrando el panel de tags en vez del panel normal
+    private boolean showingTagsPanel = false;
 
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, 176, 166);
@@ -78,6 +95,26 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
+        // ES: Botón de config, arriba a la derecha del panel
+        this.configButton = this.addRenderableWidget(new ImageButton(
+                this.leftPos + this.imageWidth - 20, this.topPos + 4, 14, 14, CONFIG_SPRITES,
+                button -> setTagsPanelVisible(true),
+                Component.translatable("gui.recyclertable.config_button")
+        ));
+
+        // ES: Botón para volver, mismo lugar, solo visible en el panel de tags.
+        // Reusa los sprites de config por ahora; cámbialos si quieres uno distinto.
+        this.backButton = this.addRenderableWidget(new ImageButton(
+                this.leftPos + this.imageWidth - 20, this.topPos + 4, 14, 14, CONFIG_SPRITES,
+                button -> setTagsPanelVisible(false),
+                Component.translatable("gui.recyclertable.config_button")
+        ));
+
+        updateButtonStates();
+    }
+
+    private void setTagsPanelVisible(boolean visible) {
+        this.showingTagsPanel = visible;
         updateButtonStates();
     }
 
@@ -91,10 +128,14 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         boolean autoActive = this.menu.isAutoActive();
         boolean processing = this.menu.isProcessing();
 
-        if (this.playIdleButton != null) this.playIdleButton.visible = !processing;
-        if (this.playActiveButton != null) this.playActiveButton.visible = processing;
-        if (this.autoOffButton != null) this.autoOffButton.visible = !autoActive;
-        if (this.autoOnButton != null) this.autoOnButton.visible = autoActive;
+        // ES: Mientras se muestra el panel de tags, se ocultan los controles
+        // del reciclador normal (play/auto/config) y solo se ve el botón de volver.
+        if (this.playIdleButton != null) this.playIdleButton.visible = !showingTagsPanel && !processing;
+        if (this.playActiveButton != null) this.playActiveButton.visible = !showingTagsPanel && processing;
+        if (this.autoOffButton != null) this.autoOffButton.visible = !showingTagsPanel && !autoActive;
+        if (this.autoOnButton != null) this.autoOnButton.visible = !showingTagsPanel && autoActive;
+        if (this.configButton != null) this.configButton.visible = !showingTagsPanel;
+        if (this.backButton != null) this.backButton.visible = showingTagsPanel;
     }
 
     private void sendButtonPacket(RecyclerButtonPayload.ButtonType type) {
@@ -106,6 +147,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     @Override
     public void extractBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
         super.extractBackground(guiGraphics, mouseX, mouseY, partialTicks);
-        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F, this.imageWidth, this.imageHeight, 256, 256);
+
+        Identifier textureToDraw = showingTagsPanel ? TAG_TEXTURE : TEXTURE;
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, textureToDraw, this.leftPos, this.topPos, 0.0F, 0.0F, this.imageWidth, this.imageHeight, 256, 256);
     }
 }
