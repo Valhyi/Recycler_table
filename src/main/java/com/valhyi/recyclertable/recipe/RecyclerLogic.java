@@ -242,16 +242,15 @@ public class RecyclerLogic {
                 }
                 RecipeMatch match = new RecipeMatch(result, output.getCount());
 
-                // ES: Si algún ingrediente de la receta es de la MISMA clase de Item que
-                // el objetivo (ej. reciclar una cama roja y que un ingrediente sea
-                // "cualquier otra cama"), es una receta de reteñido/variante, no de
-                // materiales base reales (ej. tinte + cama blanca -> cama roja). Esto
-                // reemplaza al chequeo anterior por nombre de clase de receta (que fallaba
-                // porque tanto la receta de reteñido como la de materiales base son ambas
-                // ShapelessRecipe, indistinguibles por tipo). Se prioriza cualquier receta
-                // que NO tenga este patrón; el reteñido queda como último recurso.
+                // ES: Si algún ingrediente de la receta es un TINTE (DyeItem), es una
+                // receta de reteñido (ej. tinte + cama blanca -> cama roja), no de
+                // materiales base reales. Esto reemplaza al chequeo anterior por clase de
+                // Item del ingrediente (que fallaba porque, en esta versión, el item Harness
+                // comparte la misma clase Java que el item Lana, dando falsos positivos).
+                // Comparar por DyeItem es semánticamente correcto y no depende de detalles
+                // internos de jerarquía de clases que pueden cambiar entre versiones.
                 boolean referencesSameFamily = samples.stream()
-                        .anyMatch(s -> s.getItem().getClass() == target.getItem().getClass());
+                        .anyMatch(s -> s.getItem() instanceof net.minecraft.world.item.DyeItem);
 
                 String debugPath = BuiltInRegistries.ITEM.getKey(target.getItem()).getPath();
                 if (debugPath.contains("bed") || debugPath.contains("harness")) {
