@@ -7,7 +7,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
-import net.minecraft.world.level.storage.DataFixTypes;
+import net.minecraft.util.datafix.DataFixTypes;
 
 import java.util.HashMap;
 import java.util.List;
