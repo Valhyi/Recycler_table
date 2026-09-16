@@ -25,7 +25,7 @@ public class RecyclerPreferences extends SavedData {
     private static final Codec<Map<Item, List<Item>>> MAP_CODEC =
             Codec.unboundedMap(BuiltInRegistries.ITEM.byNameCodec(), BuiltInRegistries.ITEM.byNameCodec().listOf());
 
-    public static final SavedDataType<RecyclerPreferences> TYPE = new SavedDataType<>(
+    public static final SavedDataType<RecyclerPreferences> TYPE = new SavedDataType<RecyclerPreferences>(
             "recyclertable_preferences",
             ctx -> new RecyclerPreferences(new HashMap<>()),
             ctx -> MAP_CODEC.xmap(RecyclerPreferences::new, RecyclerPreferences::getRaw),
