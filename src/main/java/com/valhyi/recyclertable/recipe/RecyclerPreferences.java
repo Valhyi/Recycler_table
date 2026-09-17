@@ -1,6 +1,7 @@
 package com.valhyi.recyclertable.recipe;
 
 import com.mojang.serialization.Codec;
+import com.valhyi.recyclertable.RecyclerTable;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -26,7 +27,7 @@ public class RecyclerPreferences extends SavedData {
             Codec.unboundedMap(BuiltInRegistries.ITEM.byNameCodec(), BuiltInRegistries.ITEM.byNameCodec().listOf());
 
     public static final SavedDataType<RecyclerPreferences> TYPE = new SavedDataType<RecyclerPreferences>(
-            "recyclertable_preferences",
+            RecyclerTable.resLoc("preferences"),
             ctx -> new RecyclerPreferences(new HashMap<>()),
             ctx -> MAP_CODEC.xmap(RecyclerPreferences::new, RecyclerPreferences::getRaw),
             DataFixTypes.LEVEL
