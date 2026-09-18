@@ -56,7 +56,7 @@ public class ModNetworking {
             ServerPlayer player = (ServerPlayer) context.player();
             if (player == null) return;
 
-            RecyclerPreferences prefs = RecyclerPreferences.get(player.getServer());
+            RecyclerPreferences prefs = RecyclerPreferences.get(player.level().getServer());
             prefs.setPreference(payload.target(), payload.ingredientSignature());
         });
     }
