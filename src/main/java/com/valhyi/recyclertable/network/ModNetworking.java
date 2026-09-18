@@ -2,6 +2,7 @@ package com.valhyi.recyclertable.network;
 
 import com.valhyi.recyclertable.RecyclerTable;
 import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
+import com.valhyi.recyclertable.recipe.RecyclerPreferences;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -21,6 +22,12 @@ public class ModNetworking {
                 RecyclerButtonPayload.STREAM_CODEC,
                 ModNetworking::handleButtonPacket
         );
+
+        registrar.playToServer(
+                RecyclerPreferencePayload.TYPE,
+                RecyclerPreferencePayload.STREAM_CODEC,
+                ModNetworking::handlePreferencePacket
+        );
     }
 
     private static void handleButtonPacket(RecyclerButtonPayload payload, IPayloadContext context) {
@@ -35,6 +42,22 @@ public class ModNetworking {
                     case AUTO -> recycler.toggleAutoMode();
                 }
             }
+        });
+    }
+
+    /**
+     * ES: El jugador eligió, desde el panel de tags, qué variante de receta
+     * usar para un item con recetas múltiples. Guarda la preferencia global
+     * (ver RecyclerPreferences); RecyclerLogic la consulta en el próximo
+     * reciclaje de ese item.
+     */
+    private static void handlePreferencePacket(RecyclerPreferencePayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            ServerPlayer player = (ServerPlayer) context.player();
+            if (player == null) return;
+
+            RecyclerPreferences prefs = RecyclerPreferences.get(player.getServer());
+            prefs.setPreference(payload.target(), payload.ingredientSignature());
         });
     }
 }
