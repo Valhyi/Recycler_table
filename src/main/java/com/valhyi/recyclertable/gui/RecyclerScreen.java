@@ -5,7 +5,6 @@ import com.valhyi.recyclertable.network.RecyclerButtonPayload;
 import com.valhyi.recyclertable.network.RecyclerPreferencePayload;
 import com.valhyi.recyclertable.recipe.MultiRecipeScanner;
 import com.valhyi.recyclertable.recipe.RecyclerPreferences;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
@@ -294,11 +293,11 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         }
     }
 
-    // ES: GuiGraphicsExtractor (usado en extractBackground) no tiene métodos de
-    // texto, solo blits. El texto del panel se dibuja acá, en el render()
-    // normal de Screen, que sí recibe un GuiGraphics completo.
+    // ES: En esta versión GuiGraphics fue reemplazado por GuiGraphicsExtractor
+    // como tipo estándar (no existe la clase GuiGraphics). drawString acá
+    // solo acepta Component, no String, así que se envuelve con Component.literal.
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
         super.render(guiGraphics, mouseX, mouseY, partialTicks);
 
         if (showingTagsPanel) {
@@ -308,8 +307,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         }
     }
 
-    private void renderTagPanelText(GuiGraphics guiGraphics, int panelX, int panelY) {
-        guiGraphics.drawString(this.font, "Conflictos: " + conflictItems.size(), panelX + 2, panelY + LABEL_Y, 0x404040, false);
+    private void renderTagPanelText(GuiGraphicsExtractor guiGraphics, int panelX, int panelY) {
+        guiGraphics.drawString(this.font, Component.literal("Conflictos: " + conflictItems.size()), panelX + 2, panelY + LABEL_Y, 0x404040, false);
 
         if (conflictItems.isEmpty()) {
             return;
@@ -325,8 +324,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 sb.append(new ItemStack(ingredients.get(i)).getHoverName().getString());
             }
             String variantText = this.font.plainSubstrByWidth(sb.toString(), TAG_PANEL_WIDTH - 6);
-            guiGraphics.drawString(this.font, variantText, panelX + 2, panelY + DETAIL_TEXT_Y, 0x404040, false);
-            guiGraphics.drawString(this.font, "Opcion " + (selectedVariantIndex + 1) + "/" + variants.size(),
+            guiGraphics.drawString(this.font, Component.literal(variantText), panelX + 2, panelY + DETAIL_TEXT_Y, 0x404040, false);
+            guiGraphics.drawString(this.font, Component.literal("Opcion " + (selectedVariantIndex + 1) + "/" + variants.size()),
                     panelX + 2, panelY + DETAIL_TEXT_Y + 10, 0x808080, false);
         }
     }
