@@ -5,6 +5,7 @@ import com.valhyi.recyclertable.network.RecyclerButtonPayload;
 import com.valhyi.recyclertable.network.RecyclerPreferencePayload;
 import com.valhyi.recyclertable.recipe.MultiRecipeScanner;
 import com.valhyi.recyclertable.recipe.RecyclerPreferences;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
@@ -36,11 +37,15 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private static final int TAG_PANEL_WIDTH = 80;
     private static final int TAG_PANEL_HEIGHT = 166;
 
-    // ES: Zona de la lista scrolleable dentro del panel (relativo a panelY)
-    private static final int LIST_TOP = 16;
-    private static final int LIST_BOTTOM = 116;
+    // ES: Layout vertical del panel (offsets relativos a panelY).
+    private static final int LABEL_Y = 4;
+    private static final int SCROLL_UP_Y = 14;
+    private static final int LIST_TOP = 24;
     private static final int ROW_HEIGHT = 12;
-    private static final int VISIBLE_ROWS = (LIST_BOTTOM - LIST_TOP) / ROW_HEIGHT;
+    private static final int VISIBLE_ROWS = 8; // 24 + 8*12 = 120
+    private static final int SCROLL_DOWN_Y = LIST_TOP + VISIBLE_ROWS * ROW_HEIGHT; // 120
+    private static final int DETAIL_TEXT_Y = SCROLL_DOWN_Y + 12; // 132
+    private static final int CYCLE_BUTTON_Y = 150;
 
     private static final WidgetSprites PLAY_SPRITES = new WidgetSprites(
             RecyclerTable.resLoc("widget/play_button"),
@@ -73,6 +78,9 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private ImageButton autoOnButton;
     private ImageButton configButton;
     private Button cycleVariantButton;
+    private Button scrollUpButton;
+    private Button scrollDownButton;
+    private final Button[] rowButtons = new Button[VISIBLE_ROWS];
 
     // ES: true cuando el panel de tags está expandido al costado
     private boolean showingTagsPanel = false;
@@ -129,14 +137,32 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 Component.translatable("gui.recyclertable.config_button")
         ));
 
-        // ES: Botón de crafteo genérico (sin sprite custom todavía; función
-        // primero). Cicla la variante seleccionada del item resaltado en la lista.
         int panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
         int panelY = this.topPos;
+
+        // ES: Botones de scroll (arriba/abajo) en vez de rueda del mouse -
+        // evita depender de la firma nueva de mouseScrolled en esta versión.
+        this.scrollUpButton = this.addRenderableWidget(Button.builder(Component.literal("^"), b -> scrollBy(-1))
+                .bounds(panelX + 2, panelY + SCROLL_UP_Y, TAG_PANEL_WIDTH - 4, 10)
+                .build());
+
+        this.scrollDownButton = this.addRenderableWidget(Button.builder(Component.literal("v"), b -> scrollBy(1))
+                .bounds(panelX + 2, panelY + SCROLL_DOWN_Y, TAG_PANEL_WIDTH - 4, 10)
+                .build());
+
+        // ES: Una fila = un botón normal. Evita implementar click manual sobre
+        // la lista (mismo motivo que arriba con el scroll).
+        for (int i = 0; i < VISIBLE_ROWS; i++) {
+            final int rowOffset = i;
+            this.rowButtons[i] = this.addRenderableWidget(Button.builder(Component.empty(), b -> selectRow(rowOffset))
+                    .bounds(panelX + 2, panelY + LIST_TOP + i * ROW_HEIGHT, TAG_PANEL_WIDTH - 4, ROW_HEIGHT - 1)
+                    .build());
+        }
+
         this.cycleVariantButton = this.addRenderableWidget(Button.builder(
                         Component.literal("Cambiar receta"),
                         button -> cycleVariant())
-                .bounds(panelX + 2, panelY + 122, TAG_PANEL_WIDTH - 4, 16)
+                .bounds(panelX + 2, panelY + CYCLE_BUTTON_Y, TAG_PANEL_WIDTH - 4, 16)
                 .build());
 
         // ES: Lectura directa del escaneo (singleplayer). Orden estable por
@@ -162,7 +188,50 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         if (this.playActiveButton != null) this.playActiveButton.visible = processing;
         if (this.autoOffButton != null) this.autoOffButton.visible = !autoActive;
         if (this.autoOnButton != null) this.autoOnButton.visible = autoActive;
-        if (this.cycleVariantButton != null) this.cycleVariantButton.visible = showingTagsPanel && !conflictItems.isEmpty();
+
+        boolean hasItems = !conflictItems.isEmpty();
+        if (this.cycleVariantButton != null) this.cycleVariantButton.visible = showingTagsPanel && hasItems;
+        if (this.scrollUpButton != null) this.scrollUpButton.visible = showingTagsPanel && hasItems;
+        if (this.scrollDownButton != null) this.scrollDownButton.visible = showingTagsPanel && hasItems;
+
+        updateRowButtons();
+    }
+
+    /**
+     * ES: Refresca el texto y visibilidad de cada botón-fila según scrollOffset
+     * y selectedIndex. Se llama cada vez que cambia el scroll o la selección.
+     */
+    private void updateRowButtons() {
+        for (int i = 0; i < VISIBLE_ROWS; i++) {
+            Button rowButton = this.rowButtons[i];
+            if (rowButton == null) continue;
+
+            int itemIndex = scrollOffset + i;
+            if (showingTagsPanel && itemIndex < conflictItems.size()) {
+                Item item = conflictItems.get(itemIndex);
+                String name = new ItemStack(item).getHoverName().getString();
+                String prefix = (itemIndex == selectedIndex) ? "> " : "";
+                rowButton.setMessage(Component.literal(prefix + name));
+                rowButton.visible = true;
+            } else {
+                rowButton.visible = false;
+            }
+        }
+    }
+
+    private void scrollBy(int delta) {
+        int maxOffset = Math.max(0, conflictItems.size() - VISIBLE_ROWS);
+        scrollOffset = Math.max(0, Math.min(maxOffset, scrollOffset + delta));
+        updateRowButtons();
+    }
+
+    private void selectRow(int rowOffset) {
+        int itemIndex = scrollOffset + rowOffset;
+        if (itemIndex >= 0 && itemIndex < conflictItems.size()) {
+            selectedIndex = itemIndex;
+            loadCurrentPreferenceIndex();
+            updateRowButtons();
+        }
     }
 
     private void sendButtonPacket(RecyclerButtonPayload.ButtonType type) {
@@ -214,38 +283,6 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (showingTagsPanel && isOverList(mouseX, mouseY)) {
-            int maxOffset = Math.max(0, conflictItems.size() - VISIBLE_ROWS);
-            scrollOffset -= (int) Math.signum(scrollY);
-            scrollOffset = Math.max(0, Math.min(maxOffset, scrollOffset));
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (showingTagsPanel && isOverList(mouseX, mouseY)) {
-            int panelY = this.topPos;
-            int row = scrollOffset + (int) ((mouseY - (panelY + LIST_TOP)) / ROW_HEIGHT);
-            if (row >= 0 && row < conflictItems.size()) {
-                selectedIndex = row;
-                loadCurrentPreferenceIndex();
-            }
-            return true;
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    private boolean isOverList(double mouseX, double mouseY) {
-        int panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
-        int panelY = this.topPos;
-        return mouseX >= panelX && mouseX <= panelX + TAG_PANEL_WIDTH
-                && mouseY >= panelY + LIST_TOP && mouseY <= panelY + LIST_BOTTOM;
-    }
-
-    @Override
     public void extractBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
         super.extractBackground(guiGraphics, mouseX, mouseY, partialTicks);
         guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F, this.imageWidth, this.imageHeight, 256, 256);
@@ -254,36 +291,30 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             int panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
             int panelY = this.topPos;
             guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TAG_TEXTURE, panelX, panelY, 0.0F, 0.0F, TAG_PANEL_WIDTH, TAG_PANEL_HEIGHT, 256, 256);
-            renderTagPanelContent(guiGraphics, panelX, panelY);
         }
     }
 
-    private void renderTagPanelContent(GuiGraphicsExtractor guiGraphics, int panelX, int panelY) {
-        guiGraphics.drawString(this.font, "Conflictos: " + conflictItems.size(), panelX + 2, panelY + 4, 0x404040, false);
+    // ES: GuiGraphicsExtractor (usado en extractBackground) no tiene métodos de
+    // texto, solo blits. El texto del panel se dibuja acá, en el render()
+    // normal de Screen, que sí recibe un GuiGraphics completo.
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+        super.render(guiGraphics, mouseX, mouseY, partialTicks);
+
+        if (showingTagsPanel) {
+            int panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
+            int panelY = this.topPos;
+            renderTagPanelText(guiGraphics, panelX, panelY);
+        }
+    }
+
+    private void renderTagPanelText(GuiGraphics guiGraphics, int panelX, int panelY) {
+        guiGraphics.drawString(this.font, "Conflictos: " + conflictItems.size(), panelX + 2, panelY + LABEL_Y, 0x404040, false);
 
         if (conflictItems.isEmpty()) {
-            guiGraphics.drawString(this.font, "(ninguno)", panelX + 2, panelY + LIST_TOP + 2, 0x808080, false);
             return;
         }
 
-        // ES: Lista scrolleable: solo se dibujan las filas visibles según scrollOffset.
-        for (int i = 0; i < VISIBLE_ROWS; i++) {
-            int itemIndex = scrollOffset + i;
-            if (itemIndex >= conflictItems.size()) break;
-
-            int rowY = panelY + LIST_TOP + i * ROW_HEIGHT;
-            Item item = conflictItems.get(itemIndex);
-            String name = new ItemStack(item).getHoverName().getString();
-            String truncated = this.font.plainSubstrByWidth(name, TAG_PANEL_WIDTH - 6);
-
-            if (itemIndex == selectedIndex) {
-                guiGraphics.fill(panelX + 1, rowY - 1, panelX + TAG_PANEL_WIDTH - 1, rowY + ROW_HEIGHT - 2, 0x552277FF);
-            }
-
-            guiGraphics.drawString(this.font, truncated, panelX + 3, rowY, 0x202020, false);
-        }
-
-        // ES: Detalle del item resaltado + variante elegida, debajo de la lista.
         Item selected = conflictItems.get(selectedIndex);
         List<MultiRecipeScanner.RecipeVariant> variants = MultiRecipeScanner.getVariantsFor(selected);
         if (selectedVariantIndex < variants.size()) {
@@ -294,9 +325,9 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 sb.append(new ItemStack(ingredients.get(i)).getHoverName().getString());
             }
             String variantText = this.font.plainSubstrByWidth(sb.toString(), TAG_PANEL_WIDTH - 6);
-            guiGraphics.drawString(this.font, variantText, panelX + 2, panelY + LIST_BOTTOM + 2, 0x404040, false);
+            guiGraphics.drawString(this.font, variantText, panelX + 2, panelY + DETAIL_TEXT_Y, 0x404040, false);
             guiGraphics.drawString(this.font, "Opcion " + (selectedVariantIndex + 1) + "/" + variants.size(),
-                    panelX + 2, panelY + LIST_BOTTOM + 12, 0x808080, false);
+                    panelX + 2, panelY + DETAIL_TEXT_Y + 10, 0x808080, false);
         }
     }
 }
