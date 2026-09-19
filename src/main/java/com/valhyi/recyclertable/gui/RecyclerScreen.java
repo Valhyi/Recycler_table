@@ -8,6 +8,7 @@ import com.valhyi.recyclertable.recipe.RecyclerPreferences;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
+import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -79,6 +80,9 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private Button cycleVariantButton;
     private Button scrollUpButton;
     private Button scrollDownButton;
+    private StringWidget infoLabel;
+    private StringWidget variantLabel;
+    private StringWidget variantIndexLabel;
     private final Button[] rowButtons = new Button[VISIBLE_ROWS];
 
     // ES: true cuando el panel de tags está expandido al costado
@@ -164,6 +168,15 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 .bounds(panelX + 2, panelY + CYCLE_BUTTON_Y, TAG_PANEL_WIDTH - 4, 16)
                 .build());
 
+        // ES: Widgets de texto (no hace falta tocar render()/drawString a mano;
+        // se dibujan solos como cualquier otro widget).
+        this.infoLabel = this.addRenderableWidget(new StringWidget(
+                panelX + 2, panelY + LABEL_Y, TAG_PANEL_WIDTH - 4, 10, Component.empty(), this.font));
+        this.variantLabel = this.addRenderableWidget(new StringWidget(
+                panelX + 2, panelY + DETAIL_TEXT_Y, TAG_PANEL_WIDTH - 4, 10, Component.empty(), this.font));
+        this.variantIndexLabel = this.addRenderableWidget(new StringWidget(
+                panelX + 2, panelY + DETAIL_TEXT_Y + 10, TAG_PANEL_WIDTH - 4, 10, Component.empty(), this.font));
+
         // ES: Lectura directa del escaneo (singleplayer). Orden estable por
         // registry name para que la lista no cambie de orden entre aperturas.
         this.conflictItems = new ArrayList<>(MultiRecipeScanner.getMultiRecipeItems().keySet());
@@ -194,6 +207,45 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         if (this.scrollDownButton != null) this.scrollDownButton.visible = showingTagsPanel && hasItems;
 
         updateRowButtons();
+        updateLabels();
+    }
+
+    /**
+     * ES: Refresca el texto de los StringWidget (contador, variante actual,
+     * índice de opción). Se llama junto con updateRowButtons() cada vez que
+     * cambia el estado relevante.
+     */
+    private void updateLabels() {
+        if (infoLabel == null) return;
+
+        infoLabel.visible = showingTagsPanel;
+        boolean hasItems = !conflictItems.isEmpty();
+        variantLabel.visible = showingTagsPanel && hasItems;
+        variantIndexLabel.visible = showingTagsPanel && hasItems;
+
+        if (!showingTagsPanel) return;
+
+        infoLabel.setMessage(Component.literal("Conflictos: " + conflictItems.size()));
+
+        if (!hasItems) {
+            variantLabel.setMessage(Component.empty());
+            variantIndexLabel.setMessage(Component.empty());
+            return;
+        }
+
+        Item selected = conflictItems.get(selectedIndex);
+        List<MultiRecipeScanner.RecipeVariant> variants = MultiRecipeScanner.getVariantsFor(selected);
+        if (selectedVariantIndex < variants.size()) {
+            List<Item> ingredients = variants.get(selectedVariantIndex).ingredientItems();
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < ingredients.size(); i++) {
+                if (i > 0) sb.append("+");
+                sb.append(new ItemStack(ingredients.get(i)).getHoverName().getString());
+            }
+            String variantText = this.font.plainSubstrByWidth(sb.toString(), TAG_PANEL_WIDTH - 6);
+            variantLabel.setMessage(Component.literal(variantText));
+            variantIndexLabel.setMessage(Component.literal("Opcion " + (selectedVariantIndex + 1) + "/" + variants.size()));
+        }
     }
 
     /**
@@ -230,6 +282,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             selectedIndex = itemIndex;
             loadCurrentPreferenceIndex();
             updateRowButtons();
+            updateLabels();
         }
     }
 
@@ -279,6 +332,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         if (this.minecraft != null && this.minecraft.player != null) {
             ClientPacketDistributor.sendToServer(new RecyclerPreferencePayload(target, chosen));
         }
+        updateLabels();
     }
 
     @Override
@@ -293,40 +347,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         }
     }
 
-    // ES: En esta versión GuiGraphics fue reemplazado por GuiGraphicsExtractor
-    // como tipo estándar (no existe la clase GuiGraphics). drawString acá
-    // solo acepta Component, no String, así que se envuelve con Component.literal.
-    @Override
-    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
-        super.render(guiGraphics, mouseX, mouseY, partialTicks);
-
-        if (showingTagsPanel) {
-            int panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
-            int panelY = this.topPos;
-            renderTagPanelText(guiGraphics, panelX, panelY);
-        }
-    }
-
-    private void renderTagPanelText(GuiGraphicsExtractor guiGraphics, int panelX, int panelY) {
-        guiGraphics.drawString(this.font, Component.literal("Conflictos: " + conflictItems.size()), panelX + 2, panelY + LABEL_Y, 0x404040, false);
-
-        if (conflictItems.isEmpty()) {
-            return;
-        }
-
-        Item selected = conflictItems.get(selectedIndex);
-        List<MultiRecipeScanner.RecipeVariant> variants = MultiRecipeScanner.getVariantsFor(selected);
-        if (selectedVariantIndex < variants.size()) {
-            List<Item> ingredients = variants.get(selectedVariantIndex).ingredientItems();
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < ingredients.size(); i++) {
-                if (i > 0) sb.append("+");
-                sb.append(new ItemStack(ingredients.get(i)).getHoverName().getString());
-            }
-            String variantText = this.font.plainSubstrByWidth(sb.toString(), TAG_PANEL_WIDTH - 6);
-            guiGraphics.drawString(this.font, Component.literal(variantText), panelX + 2, panelY + DETAIL_TEXT_Y, 0x404040, false);
-            guiGraphics.drawString(this.font, Component.literal("Opcion " + (selectedVariantIndex + 1) + "/" + variants.size()),
-                    panelX + 2, panelY + DETAIL_TEXT_Y + 10, 0x808080, false);
-        }
-    }
+    // ES: El texto del panel de tags ya no se dibuja acá a mano - ver
+    // infoLabel/variantLabel/variantIndexLabel (StringWidget) más arriba.
+    // GuiGraphicsExtractor no tiene drawString con ninguna firma probada, y
+    // Screen.render() tampoco usa ese tipo, así que evitamos tocarlo del todo.
 }
