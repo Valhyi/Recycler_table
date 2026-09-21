@@ -56,11 +56,6 @@ public class ModNetworking {
             ServerPlayer player = (ServerPlayer) context.player();
             if (player == null) return;
 
-            // ES: DEBUG TEMPORAL - confirmar qué llegó realmente por red antes
-            // de guardarlo, para descartar un problema del StreamCodec.
-            com.mojang.logging.LogUtils.getLogger().info("[RecyclerTable DEBUG] Preferencia recibida - target="
-                    + payload.target() + " | firma=" + payload.ingredientSignature());
-
             RecyclerPreferences prefs = RecyclerPreferences.get(player.level().getServer());
             prefs.setPreference(payload.target(), payload.ingredientSignature());
         });
