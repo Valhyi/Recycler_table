@@ -297,8 +297,10 @@ public class RecyclerLogic {
         if (preferred.isEmpty()) return null;
 
         List<Item> wanted = preferred.get();
+        LOGGER.info("[RecyclerTable DEBUG] applyPreference para " + target + " | wanted=" + wanted);
         for (RecipeMatch candidate : candidates) {
             List<Item> signature = candidate.ingredients().stream().map(ItemStack::getItem).toList();
+            LOGGER.info("[RecyclerTable DEBUG]   candidato=" + signature + " | match=" + signature.equals(wanted));
             if (signature.equals(wanted)) {
                 return candidate;
             }
