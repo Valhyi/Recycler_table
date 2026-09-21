@@ -1,6 +1,5 @@
 package com.valhyi.recyclertable.recipe;
 
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
@@ -83,19 +82,9 @@ public class RecyclerLogic {
             return null;
         }
 
-        // ES: DEBUG TEMPORAL - trazar el estado exacto de camas/arneses antes de
-        // cualquier corte temprano, para confirmar si cargan DYED_COLOR.
-        String debugPath = BuiltInRegistries.ITEM.getKey(inputStack.getItem()).getPath();
-        boolean isDebugTarget = debugPath.contains("bed") || debugPath.contains("harness");
-
         // ES: Items teñidos (armadura de cuero, etc.) no devuelven materiales al reciclar.
         // Si están encantados, el encantamiento se extrae por otra vía (ver processRecycling).
         DyedItemColor dyedColor = inputStack.get(DataComponents.DYED_COLOR);
-        if (isDebugTarget) {
-            LOGGER.info("[RecyclerTable DEBUG] getRecipeMatch para: " + debugPath
-                    + " | DYED_COLOR=" + (dyedColor != null ? dyedColor.rgb() : "null")
-                    + " | blacklisted=" + isBlacklisted(inputStack));
-        }
         if (dyedColor != null) {
             return null;
         }
@@ -119,41 +108,7 @@ public class RecyclerLogic {
         found = findInSmithing(target, recipeManager);
         if (found != null) return found;
 
-        // ES: DEBUG TEMPORAL - si no se encontró nada y el item es cama/arnés,
-        // volcar a consola qué recetas existen con ese nombre y de qué tipo/clase son.
-        debugScanRecipes(target, recipeManager);
-
         return null;
-    }
-
-    /**
-     * ES: DEBUG TEMPORAL - imprime en consola el tipo y clase real de cualquier
-     * receta registrada cuyo ID contenga "bed" o "harness", para diagnosticar
-     * por qué el reciclador no las encuentra. Borrar cuando el bug esté resuelto.
-     */
-    private static void debugScanRecipes(ItemStack target, RecipeManager recipeManager) {
-        String path = BuiltInRegistries.ITEM.getKey(target.getItem()).getPath();
-        if (!path.contains("bed") && !path.contains("harness")) {
-            return;
-        }
-
-        LOGGER.info("[RecyclerTable DEBUG] Sin match para: " + path);
-        for (RecipeHolder<?> holder : recipeManager.getRecipes()) {
-            String id = holder.id().toString();
-            if (id.contains("bed") || id.contains("harness")) {
-                Recipe<?> recipe = holder.value();
-                boolean ingredientsEmpty;
-                try {
-                    ingredientsEmpty = recipe.placementInfo().ingredients().isEmpty();
-                } catch (Exception ex) {
-                    ingredientsEmpty = true;
-                }
-                LOGGER.info("[RecyclerTable DEBUG]   id=" + id
-                        + " | recipeType=" + recipe.getType()
-                        + " | javaClass=" + recipe.getClass().getName()
-                        + " | ingredientsEmpty=" + ingredientsEmpty);
-            }
-        }
     }
 
     /**
@@ -259,14 +214,6 @@ public class RecyclerLogic {
                 boolean referencesSameFamily = samples.stream()
                         .anyMatch(s -> s.getItem() instanceof net.minecraft.world.item.DyeItem);
 
-                String debugPath = BuiltInRegistries.ITEM.getKey(target.getItem()).getPath();
-                if (debugPath.contains("bed") || debugPath.contains("harness")) {
-                    LOGGER.info("[RecyclerTable DEBUG] findInCrafting match para " + debugPath
-                            + " | recipeId=" + holder.id()
-                            + " | referencesSameFamily=" + referencesSameFamily
-                            + " | ingredientes=" + result);
-                }
-
                 if (!referencesSameFamily) {
                     realMatches.add(match);
                 } else if (fallbackDyedMatch == null) {
@@ -297,10 +244,8 @@ public class RecyclerLogic {
         if (preferred.isEmpty()) return null;
 
         List<Item> wanted = preferred.get();
-        LOGGER.info("[RecyclerTable DEBUG] applyPreference para " + target + " | wanted=" + wanted);
         for (RecipeMatch candidate : candidates) {
             List<Item> signature = candidate.ingredients().stream().map(ItemStack::getItem).toList();
-            LOGGER.info("[RecyclerTable DEBUG]   candidato=" + signature + " | match=" + signature.equals(wanted));
             if (signature.equals(wanted)) {
                 return candidate;
             }
