@@ -36,7 +36,12 @@ public class RecyclerPreferences extends SavedData {
     private final Map<Item, List<Item>> chosenVariants;
 
     private RecyclerPreferences(Map<Item, List<Item>> chosenVariants) {
-        this.chosenVariants = chosenVariants;
+        // ES: El Codec puede entregar un ImmutableMap al decodificar desde disco
+        // (Codec.unboundedMap arma un ImmutableMap.Builder internamente). Si se
+        // guarda ese mapa tal cual, cualquier setPreference() posterior explota
+        // con UnsupportedOperationException. Envolver siempre en un HashMap
+        // nuevo garantiza que quede mutable sin importar de dónde venga.
+        this.chosenVariants = new HashMap<>(chosenVariants);
     }
 
     private Map<Item, List<Item>> getRaw() {
