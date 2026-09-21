@@ -34,18 +34,20 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     // ES: Tamaño y separación del panel de tags respecto al GUI principal.
     private static final int TAG_PANEL_GAP = 4;
-    private static final int TAG_PANEL_WIDTH = 80;
+    private static final int TAG_PANEL_WIDTH = 120;
     private static final int TAG_PANEL_HEIGHT = 166;
 
-    // ES: Layout vertical del panel (offsets relativos a panelY).
+    // ES: Layout vertical del panel (offsets relativos a panelY). Recalculado
+    // para dar más aire entre elementos - la versión anterior (8 filas,
+    // 80px de ancho) hacía que el label de abajo y el botón se pisaran 2px.
     private static final int LABEL_Y = 4;
-    private static final int SCROLL_UP_Y = 14;
-    private static final int LIST_TOP = 24;
-    private static final int ROW_HEIGHT = 12;
-    private static final int VISIBLE_ROWS = 8; // 24 + 8*12 = 120
-    private static final int SCROLL_DOWN_Y = LIST_TOP + VISIBLE_ROWS * ROW_HEIGHT; // 120
-    private static final int DETAIL_TEXT_Y = SCROLL_DOWN_Y + 12; // 132
-    private static final int CYCLE_BUTTON_Y = 150;
+    private static final int SCROLL_UP_Y = 15;
+    private static final int LIST_TOP = 26;
+    private static final int ROW_HEIGHT = 11;
+    private static final int VISIBLE_ROWS = 7; // 26 + 7*11 = 103
+    private static final int SCROLL_DOWN_Y = LIST_TOP + VISIBLE_ROWS * ROW_HEIGHT; // 103
+    private static final int DETAIL_TEXT_Y = SCROLL_DOWN_Y + 15; // 118
+    private static final int CYCLE_BUTTON_Y = 142; // deja margen: DETAIL_TEXT_Y+10 termina en 128, panel termina en 166
 
     private static final WidgetSprites PLAY_SPRITES = new WidgetSprites(
             RecyclerTable.resLoc("widget/play_button"),
@@ -163,7 +165,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         }
 
         this.cycleVariantButton = this.addRenderableWidget(Button.builder(
-                        Component.literal("Cambiar receta"),
+                        Component.literal("Cambiar"),
                         button -> cycleVariant())
                 .bounds(panelX + 2, panelY + CYCLE_BUTTON_Y, TAG_PANEL_WIDTH - 4, 16)
                 .build());
@@ -262,7 +264,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 Item item = conflictItems.get(itemIndex);
                 String name = new ItemStack(item).getHoverName().getString();
                 String prefix = (itemIndex == selectedIndex) ? "> " : "";
-                rowButton.setMessage(Component.literal(prefix + name));
+                String fitted = this.font.plainSubstrByWidth(prefix + name, TAG_PANEL_WIDTH - 24);
+                rowButton.setMessage(Component.literal(fitted));
                 rowButton.visible = true;
             } else {
                 rowButton.visible = false;
