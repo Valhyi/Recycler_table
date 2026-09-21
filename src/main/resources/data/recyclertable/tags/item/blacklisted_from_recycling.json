@@ -1,0 +1,29 @@
+{
+  "values": [
+    "minecraft:iron_ingot",
+    "minecraft:gold_ingot",
+    "minecraft:copper_ingot",
+    "minecraft:netherite_ingot",
+    "minecraft:diamond",
+    "minecraft:emerald",
+    "minecraft:lapis_lazuli",
+    "minecraft:redstone",
+    "minecraft:quartz",
+    "minecraft:coal",
+    "minecraft:amethyst_shard",
+    "minecraft:iron_nugget",
+    "minecraft:gold_nugget",
+    "minecraft:cooked_beef",
+    "minecraft:cooked_porkchop",
+    "minecraft:cooked_chicken",
+    "minecraft:cooked_mutton",
+    "minecraft:cooked_rabbit",
+    "minecraft:cooked_cod",
+    "minecraft:cooked_salmon",
+    "minecraft:baked_potato",
+    "minecraft:dried_kelp",
+    "minecraft:cobblestone",
+    "minecraft:stone",
+    "minecraft:smooth_stone"
+  ]
+}
