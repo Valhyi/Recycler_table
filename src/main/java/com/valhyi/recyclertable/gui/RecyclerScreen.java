@@ -98,6 +98,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private int scrollOffset = 0;
     private int selectedIndex = 0;
     private int selectedVariantIndex = 0;
+    private ItemStack previewIcon = ItemStack.EMPTY; // ES: PRUEBA TEMPORAL - ver nota en updateLabels()
 
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, 176, 166);
@@ -247,6 +248,11 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             String variantText = this.font.plainSubstrByWidth(sb.toString(), TAG_PANEL_WIDTH - 6);
             variantLabel.setMessage(Component.literal(variantText));
             variantIndexLabel.setMessage(Component.literal("Opcion " + (selectedVariantIndex + 1) + "/" + variants.size()));
+
+            // ES: PRUEBA TEMPORAL - guardamos el ítem a dibujar como ícono para
+            // confirmar si renderItem() funciona en esta versión antes de
+            // rediseñar todo el panel con íconos.
+            this.previewIcon = new ItemStack(ingredients.get(0));
         }
     }
 
@@ -347,6 +353,13 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             int panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
             int panelY = this.topPos;
             guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TAG_TEXTURE, panelX, panelY, 0.0F, 0.0F, TAG_PANEL_WIDTH, TAG_PANEL_HEIGHT, 256, 256);
+
+            // ES: PRUEBA TEMPORAL - confirmar si renderItem() existe/funciona
+            // en GuiGraphicsExtractor antes de rediseñar el panel con íconos
+            // de item en vez de texto (ver mockup del usuario).
+            if (!previewIcon.isEmpty()) {
+                guiGraphics.renderItem(previewIcon, panelX + TAG_PANEL_WIDTH - 20, panelY + DETAIL_TEXT_Y - 2);
+            }
         }
     }
 
