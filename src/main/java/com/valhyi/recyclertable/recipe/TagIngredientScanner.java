@@ -3,7 +3,6 @@ package com.valhyi.recyclertable.recipe;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
@@ -13,46 +12,37 @@ import net.minecraft.world.item.crafting.RecipeType;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
- * ES: Detecta qué tags de item (ej. #minecraft:planks) se usan como
- * ingrediente en al menos una receta de crafting, para ofrecerlos en el
- * panel de tags (elegir qué item específico del tag preferir al reciclar).
+ * ES: Detecta grupos de items intercambiables usados como ingrediente en
+ * recetas de crafting (ej. cualquier tabla de madera para la mesa de
+ * crafteo). En vez de depender del sistema de tags de Minecraft (nombre del
+ * tag, enumerar todos los tags registrados - API que resultó muy inestable
+ * en esta versión), identifica cada grupo directamente por el CONJUNTO
+ * EXACTO de items que ese ingrediente acepta. Dos ingredientes con
+ * exactamente los mismos items son "el mismo grupo", sin importar si están
+ * respaldados por un tag real o no.
  *
- * También mantiene un índice inverso (conjunto exacto de miembros -> tag)
- * que RecyclerLogic consulta en tiempo real para identificar a qué tag
- * corresponde cualquier ingrediente, sin depender de la estructura interna
- * de Ingredient (que cambia entre versiones) - solo compara qué items acepta
- * contra los tags realmente registrados.
+ * La clave de cada grupo es un String canónico (items ordenados por su id de
+ * registro y unidos con "|"), para que sea trivial de guardar en el Codec de
+ * RecyclerGroupPreferences sin depender de ningún tipo de dato adicional.
  */
 public class TagIngredientScanner {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private static Map<Set<Item>, TagKey<Item>> tagsByMemberSet = Collections.emptyMap();
-    private static Map<TagKey<Item>, List<Item>> usedTags = Collections.emptyMap();
+    // ES: clave canónica -> lista de items del grupo (para mostrar en el panel)
+    private static Map<String, List<Item>> usedGroups = Collections.emptyMap();
     private static volatile boolean scanned = false;
 
     public static void scan(RecipeManager recipeManager) {
-        Map<Set<Item>, TagKey<Item>> byMemberSet = new HashMap<>();
-
-        BuiltInRegistries.ITEM.tags().forEach(tagKey -> {
-            Set<Item> members = BuiltInRegistries.ITEM.getTag(tagKey)
-                    .map(holderSet -> holderSet.stream().map(Holder::value).collect(Collectors.toSet()))
-                    .orElse(Collections.emptySet());
-            if (members.size() >= 2) {
-                byMemberSet.put(members, tagKey);
-            }
-        });
-        tagsByMemberSet = byMemberSet;
-
-        Map<TagKey<Item>, List<Item>> found = new HashMap<>();
+        Map<String, List<Item>> found = new HashMap<>();
 
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
             Recipe<?> recipe = holder.value();
@@ -65,23 +55,21 @@ public class TagIngredientScanner {
             }
 
             for (Ingredient ingredient : ingredients) {
-                Set<Item> items = ingredient.items().map(Holder::value).collect(Collectors.toSet());
+                List<Item> items = ingredient.items().map(Holder::value).distinct().toList();
                 if (items.size() < 2) continue;
 
-                TagKey<Item> tag = byMemberSet.get(items);
-                if (tag == null) continue;
-
-                found.computeIfAbsent(tag, k -> new ArrayList<>(items));
+                String key = canonicalKey(items);
+                found.putIfAbsent(key, sortedCopy(items));
             }
         }
 
-        usedTags = found;
+        usedGroups = found;
         scanned = true;
 
-        LOGGER.info("[RecyclerTable] Escaneo de tags de ingrediente completo: "
-                + found.size() + " tag(s) usados en recetas");
-        for (Map.Entry<TagKey<Item>, List<Item>> entry : found.entrySet()) {
-            LOGGER.info("[RecyclerTable]   " + entry.getKey().location() + " -> " + entry.getValue());
+        LOGGER.info("[RecyclerTable] Escaneo de grupos de ingrediente completo: "
+                + found.size() + " grupo(s) usados en recetas");
+        for (Map.Entry<String, List<Item>> entry : found.entrySet()) {
+            LOGGER.info("[RecyclerTable]   " + entry.getKey());
         }
     }
 
@@ -89,20 +77,32 @@ public class TagIngredientScanner {
         return scanned;
     }
 
-    public static Map<TagKey<Item>, List<Item>> getUsedTags() {
-        return usedTags;
+    public static Map<String, List<Item>> getUsedGroups() {
+        return usedGroups;
     }
 
-    public static List<Item> getMembersFor(TagKey<Item> tag) {
-        return usedTags.getOrDefault(tag, Collections.emptyList());
+    public static List<Item> getMembersFor(String groupKey) {
+        return usedGroups.getOrDefault(groupKey, Collections.emptyList());
     }
 
     /**
-     * ES: Dado el conjunto de items que acepta un ingrediente en tiempo real
-     * (ingredient.items()), busca a qué tag corresponde exactamente. Null si
-     * ningún tag registrado tiene ese mismo conjunto exacto de miembros.
+     * ES: Clave canónica y estable para un conjunto de items: ordenados por
+     * su id de registro (namespace:path) y unidos con "|". Mismo conjunto de
+     * items siempre produce la misma clave, sin importar el orden original.
      */
-    public static TagKey<Item> findTagForItems(Set<Item> items) {
-        return tagsByMemberSet.get(items);
+    public static String canonicalKey(Collection<Item> items) {
+        List<Item> sorted = sortedCopy(items);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < sorted.size(); i++) {
+            if (i > 0) sb.append('|');
+            sb.append(BuiltInRegistries.ITEM.getKey(sorted.get(i)));
+        }
+        return sb.toString();
+    }
+
+    private static List<Item> sortedCopy(Collection<Item> items) {
+        List<Item> sorted = new ArrayList<>(items);
+        sorted.sort(Comparator.comparing(item -> BuiltInRegistries.ITEM.getKey(item).toString()));
+        return sorted;
     }
 }
