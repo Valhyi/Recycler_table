@@ -42,7 +42,7 @@ public class TagIngredientScanner {
     public static void scan(RecipeManager recipeManager) {
         Map<Set<Item>, TagKey<Item>> byMemberSet = new HashMap<>();
 
-        BuiltInRegistries.ITEM.getTagNames().forEach(tagKey -> {
+        BuiltInRegistries.ITEM.streamTags().forEach(tagKey -> {
             Set<Item> members = BuiltInRegistries.ITEM.getTag(tagKey)
                     .map(holderSet -> holderSet.stream().map(Holder::value).collect(Collectors.toSet()))
                     .orElse(Collections.emptySet());
