@@ -358,7 +358,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             // en GuiGraphicsExtractor antes de rediseñar el panel con íconos
             // de item en vez de texto (ver mockup del usuario).
             if (!previewIcon.isEmpty()) {
-                guiGraphics.renderItem(previewIcon, panelX + TAG_PANEL_WIDTH - 20, panelY + DETAIL_TEXT_Y - 2);
+                guiGraphics.item(previewIcon, panelX + TAG_PANEL_WIDTH - 20, panelY + DETAIL_TEXT_Y - 2);
             }
         }
     }
