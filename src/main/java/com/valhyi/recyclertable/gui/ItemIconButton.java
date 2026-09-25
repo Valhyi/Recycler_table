@@ -13,6 +13,8 @@ import java.util.function.Consumer;
  * ES: Boton cuadrado que dibuja un ItemStack en vez de texto. Usado para
  * cada variante disponible en el grid de seleccion del panel de tags:
  * tocar el icono aplica esa preferencia de inmediato (sin boton "Cambiar").
+ * Ya no pinta un fondo gris/negro por defecto: solo el slot con la
+ * preferencia actual se marca (verde).
  */
 public class ItemIconButton extends AbstractButton {
     private ItemStack displayStack = ItemStack.EMPTY;
@@ -43,8 +45,9 @@ public class ItemIconButton extends AbstractButton {
         int w = this.getWidth();
         int h = this.getHeight();
 
-        int bgColor = highlighted ? 0xFF3C8527 : (this.isHovered() ? 0xFF6B6B6B : 0xFF373737);
-        guiGraphics.fill(x, y, x + w, y + h, bgColor);
+        if (highlighted) {
+            guiGraphics.fill(x, y, x + w, y + h, 0xFF3C8527);
+        }
 
         if (!displayStack.isEmpty()) {
             guiGraphics.item(displayStack, x + Math.max(0, (w - 16) / 2), y + Math.max(0, (h - 16) / 2));
