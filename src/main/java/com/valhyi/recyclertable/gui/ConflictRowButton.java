@@ -11,9 +11,10 @@ import java.util.function.Consumer;
 
 /**
  * ES: Fila de la lista de conflictos. Dibuja el icono del item objetivo y,
- * al lado, el icono de la preferencia actualmente elegida (o nada si el
- * item no tiene variantes, ej. sin receta reconstruible). Toda la fila es
+ * al lado, el icono de la preferencia actualmente elegida. Toda la fila es
  * clickeable y selecciona ese item para mostrar sus variantes abajo.
+ * Sin fondo gris/negro por defecto: solo la fila seleccionada se marca
+ * (verde), igual criterio que ItemIconButton.
  */
 public class ConflictRowButton extends AbstractButton {
     private ItemStack targetIcon = ItemStack.EMPTY;
@@ -46,8 +47,9 @@ public class ConflictRowButton extends AbstractButton {
         int w = this.getWidth();
         int h = this.getHeight();
 
-        int bgColor = selected ? 0xFF3C6E27 : (this.isHovered() ? 0xFF5A5A5A : 0xFF2F2F2F);
-        guiGraphics.fill(x, y, x + w, y + h, bgColor);
+        if (selected) {
+            guiGraphics.fill(x, y, x + w, y + h, 0xFF3C6E27);
+        }
 
         if (!targetIcon.isEmpty()) {
             guiGraphics.item(targetIcon, x + 1, y + 1);
