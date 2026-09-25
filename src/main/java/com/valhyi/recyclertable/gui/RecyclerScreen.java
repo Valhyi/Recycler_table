@@ -6,7 +6,6 @@ import com.valhyi.recyclertable.network.RecyclerPreferencePayload;
 import com.valhyi.recyclertable.recipe.MultiRecipeScanner;
 import com.valhyi.recyclertable.recipe.RecyclerPreferences;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.components.WidgetSprites;
@@ -34,19 +33,19 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private static final int TAG_PANEL_WIDTH = 120;
     private static final int TAG_PANEL_HEIGHT = 166;
 
-    // ES: Layout vertical del panel (offsets relativos a panelY).
-    private static final int LABEL_Y = 4;
-    private static final int SCROLL_UP_Y = 15;
-    private static final int LIST_TOP = 26;
-    private static final int ROW_HEIGHT = 18; // filas mas altas: ahora llevan 2 iconos de 16px
-    private static final int VISIBLE_ROWS = 4; // 26 + 4*18 = 98
-    private static final int SCROLL_DOWN_Y = LIST_TOP + VISIBLE_ROWS * ROW_HEIGHT; // 98
-    private static final int DETAIL_LABEL_Y = SCROLL_DOWN_Y + 14; // 112
-    private static final int VARIANT_GRID_Y = DETAIL_LABEL_Y + 12; // 124
+    // ES: Sin label de conteo de conflictos ni botones de scroll visibles
+    // (^/v): el scroll ahora es con la rueda del mouse sobre cada zona
+    // (ver mouseScrolled), invisible. Layout recalculado para aprovechar
+    // el espacio liberado.
+    private static final int LIST_TOP = 4;
+    private static final int ROW_HEIGHT = 18; // filas con 2 iconos de 16px
+    private static final int VISIBLE_ROWS = 4; // 4 + 4*18 = 76
+    private static final int DETAIL_LABEL_Y = LIST_TOP + VISIBLE_ROWS * ROW_HEIGHT + 6; // 82
+    private static final int VARIANT_GRID_Y = DETAIL_LABEL_Y + 12; // 94
     private static final int VARIANT_ICON_SIZE = 18;
     private static final int VARIANT_COLS = 6;
-    private static final int VARIANT_ROWS = 2; // 124 + 2*18 = 160, entra en 166
-    private static final int MAX_VARIANT_SLOTS = VARIANT_COLS * VARIANT_ROWS;
+    private static final int VARIANT_ROWS = 3; // 94 + 3*18 = 148, entra en 166. Si desborda, bajar a 2.
+    private static final int MAX_VARIANT_SLOTS = VARIANT_COLS * VARIANT_ROWS; // 18 visibles, resto por scroll
 
     private static final WidgetSprites PLAY_SPRITES = new WidgetSprites(
             RecyclerTable.resLoc("widget/play_button"),
@@ -78,9 +77,6 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private ImageButton autoOffButton;
     private ImageButton autoOnButton;
     private ImageButton configButton;
-    private Button scrollUpButton;
-    private Button scrollDownButton;
-    private StringWidget infoLabel;
     private StringWidget detailLabel;
     private final ConflictRowButton[] rowButtons = new ConflictRowButton[VISIBLE_ROWS];
     private final ItemIconButton[] variantButtons = new ItemIconButton[MAX_VARIANT_SLOTS];
@@ -91,6 +87,10 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private int scrollOffset = 0;
     private int selectedIndex = 0;
     private int selectedVariantIndex = 0;
+    private int variantScrollOffset = 0; // ES: en unidades de fila (cada una = VARIANT_COLS variantes)
+
+    private int panelX;
+    private int panelY;
 
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, 176, 166);
@@ -135,20 +135,12 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 Component.translatable("gui.recyclertable.config_button")
         ));
 
-        int panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
-        int panelY = this.topPos;
-
-        this.scrollUpButton = this.addRenderableWidget(Button.builder(Component.literal("^"), b -> scrollBy(-1))
-                .bounds(panelX + 2, panelY + SCROLL_UP_Y, TAG_PANEL_WIDTH - 4, 10)
-                .build());
-
-        this.scrollDownButton = this.addRenderableWidget(Button.builder(Component.literal("v"), b -> scrollBy(1))
-                .bounds(panelX + 2, panelY + SCROLL_DOWN_Y, TAG_PANEL_WIDTH - 4, 10)
-                .build());
+        this.panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
+        this.panelY = this.topPos;
 
         // ES: Filas de conflictos - cada una con icono objetivo + icono de
-        // preferencia actual. Tocar la fila la selecciona (no cambia nada
-        // por si sola; el cambio real pasa en el grid de variantes de abajo).
+        // preferencia actual. Tocar la fila la selecciona. Scroll: rueda
+        // del mouse sobre esta zona (ver mouseScrolled).
         for (int i = 0; i < VISIBLE_ROWS; i++) {
             final int rowOffset = i;
             this.rowButtons[i] = this.addRenderableWidget(new ConflictRowButton(
@@ -158,19 +150,20 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         }
 
         // ES: Grid de iconos de variantes - tocar un icono aplica esa
-        // preferencia al instante (reemplaza al viejo boton "Cambiar" + ciclo).
+        // preferencia al instante. Scroll: rueda del mouse sobre esta zona
+        // (ver mouseScrolled). slotIndex es la posicion dentro del grid
+        // visible; selectVariant() lo traduce al indice real sumando el
+        // offset de scroll actual.
         for (int i = 0; i < MAX_VARIANT_SLOTS; i++) {
-            final int variantIndex = i;
+            final int slotIndex = i;
             int col = i % VARIANT_COLS;
             int row = i / VARIANT_COLS;
             this.variantButtons[i] = this.addRenderableWidget(new ItemIconButton(
                     panelX + 2 + col * VARIANT_ICON_SIZE, panelY + VARIANT_GRID_Y + row * VARIANT_ICON_SIZE, 16,
-                    button -> selectVariant(variantIndex)
+                    button -> selectVariant(slotIndex)
             ));
         }
 
-        this.infoLabel = this.addRenderableWidget(new StringWidget(
-                panelX + 2, panelY + LABEL_Y, TAG_PANEL_WIDTH - 4, 10, Component.empty(), this.font));
         this.detailLabel = this.addRenderableWidget(new StringWidget(
                 panelX + 2, panelY + DETAIL_LABEL_Y, TAG_PANEL_WIDTH - 4, 10, Component.empty(), this.font));
 
@@ -187,6 +180,38 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         updateButtonStates();
     }
 
+    /**
+     * ES: Scroll invisible con la rueda del mouse. Si el cursor esta sobre
+     * la lista de conflictos, mueve scrollOffset; si esta sobre el grid de
+     * variantes, mueve variantScrollOffset. Firma vanilla estandar de esta
+     * franja de versiones (Screen#mouseScrolled); si el compilador la
+     * rechaza, revisar la firma real igual que se hizo con
+     * AbstractButton#onPress.
+     */
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (showingTagsPanel && !conflictItems.isEmpty() && scrollY != 0) {
+            int panelLeft = panelX + 2;
+            int panelRight = panelX + TAG_PANEL_WIDTH - 2;
+            int direction = scrollY < 0 ? 1 : -1;
+
+            int listTop = panelY + LIST_TOP;
+            int listBottom = listTop + VISIBLE_ROWS * ROW_HEIGHT;
+            if (mouseX >= panelLeft && mouseX < panelRight && mouseY >= listTop && mouseY < listBottom) {
+                scrollListBy(direction);
+                return true;
+            }
+
+            int variantTop = panelY + VARIANT_GRID_Y;
+            int variantBottom = variantTop + VARIANT_ROWS * VARIANT_ICON_SIZE;
+            if (mouseX >= panelLeft && mouseX < panelRight && mouseY >= variantTop && mouseY < variantBottom) {
+                scrollVariantsBy(direction);
+                return true;
+            }
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
     private void updateButtonStates() {
         boolean autoActive = this.menu.isAutoActive();
         boolean processing = this.menu.isProcessing();
@@ -196,26 +221,16 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         if (this.autoOffButton != null) this.autoOffButton.visible = !autoActive;
         if (this.autoOnButton != null) this.autoOnButton.visible = autoActive;
 
-        boolean hasItems = !conflictItems.isEmpty();
-        if (this.scrollUpButton != null) this.scrollUpButton.visible = showingTagsPanel && hasItems;
-        if (this.scrollDownButton != null) this.scrollDownButton.visible = showingTagsPanel && hasItems;
-
         updateRowButtons();
         updateVariantButtons();
         updateLabels();
     }
 
     private void updateLabels() {
-        if (infoLabel == null) return;
+        if (detailLabel == null) return;
 
-        infoLabel.visible = showingTagsPanel;
         detailLabel.visible = showingTagsPanel && !conflictItems.isEmpty();
-
-        if (!showingTagsPanel) return;
-
-        infoLabel.setMessage(Component.literal("Conflictos: " + conflictItems.size()));
-
-        if (conflictItems.isEmpty()) {
+        if (!showingTagsPanel || conflictItems.isEmpty()) {
             detailLabel.setMessage(Component.empty());
             return;
         }
@@ -253,13 +268,16 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 ? MultiRecipeScanner.getVariantsFor(conflictItems.get(selectedIndex))
                 : List.of();
 
+        int startIndex = variantScrollOffset * VARIANT_COLS;
+
         for (int i = 0; i < MAX_VARIANT_SLOTS; i++) {
             ItemIconButton variantButton = this.variantButtons[i];
             if (variantButton == null) continue;
 
-            if (hasSelection && i < variants.size()) {
-                ItemStack icon = new ItemStack(variants.get(i).ingredientItems().get(0));
-                variantButton.setContent(icon, i == selectedVariantIndex);
+            int variantIndex = startIndex + i;
+            if (hasSelection && variantIndex < variants.size()) {
+                ItemStack icon = new ItemStack(variants.get(variantIndex).ingredientItems().get(0));
+                variantButton.setContent(icon, variantIndex == selectedVariantIndex);
                 variantButton.visible = true;
             } else {
                 variantButton.visible = false;
@@ -267,10 +285,19 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         }
     }
 
-    private void scrollBy(int delta) {
+    private void scrollListBy(int delta) {
         int maxOffset = Math.max(0, conflictItems.size() - VISIBLE_ROWS);
         scrollOffset = Math.max(0, Math.min(maxOffset, scrollOffset + delta));
         updateRowButtons();
+    }
+
+    private void scrollVariantsBy(int delta) {
+        if (conflictItems.isEmpty()) return;
+        List<MultiRecipeScanner.RecipeVariant> variants = MultiRecipeScanner.getVariantsFor(conflictItems.get(selectedIndex));
+        int totalRows = (variants.size() + VARIANT_COLS - 1) / VARIANT_COLS;
+        int maxOffsetRows = Math.max(0, totalRows - VARIANT_ROWS);
+        variantScrollOffset = Math.max(0, Math.min(maxOffsetRows, variantScrollOffset + delta));
+        updateVariantButtons();
     }
 
     private void selectRow(int rowOffset) {
@@ -283,15 +310,17 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     }
 
     /**
-     * ES: Se llama al tocar un icono del grid de variantes. Aplica la
-     * preferencia de inmediato (manda el paquete al server) y refresca
-     * tanto el grid como la fila correspondiente en la lista.
+     * ES: Se llama al tocar un icono del grid de variantes. slotIndex es la
+     * posicion visible (0..MAX_VARIANT_SLOTS-1); se traduce al indice real
+     * de la variante sumando el offset de scroll actual antes de aplicar
+     * la preferencia.
      */
-    private void selectVariant(int variantIndex) {
+    private void selectVariant(int slotIndex) {
         if (conflictItems.isEmpty()) return;
 
         Item target = conflictItems.get(selectedIndex);
         List<MultiRecipeScanner.RecipeVariant> variants = MultiRecipeScanner.getVariantsFor(target);
+        int variantIndex = variantScrollOffset * VARIANT_COLS + slotIndex;
         if (variantIndex < 0 || variantIndex >= variants.size()) return;
 
         selectedVariantIndex = variantIndex;
@@ -310,12 +339,14 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     }
 
     /**
-     * ES: Busca la preferencia guardada para el item seleccionado y ajusta
-     * selectedVariantIndex para reflejarla (o 0 = primera variante si no
-     * hay preferencia guardada). Lee el server local directo (singleplayer).
+     * ES: Busca la preferencia guardada para el item seleccionado, ajusta
+     * selectedVariantIndex para reflejarla (0 = primera variante si no hay
+     * preferencia guardada), y mueve variantScrollOffset para que esa
+     * variante quede visible sin necesidad de scrollear a mano.
      */
     private void loadCurrentPreferenceIndex() {
         selectedVariantIndex = 0;
+        variantScrollOffset = 0;
         if (conflictItems.isEmpty()) return;
 
         Item target = conflictItems.get(selectedIndex);
@@ -329,6 +360,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             for (int i = 0; i < variants.size(); i++) {
                 if (variants.get(i).ingredientItems().equals(signature)) {
                     selectedVariantIndex = i;
+                    variantScrollOffset = i / VARIANT_COLS;
                     return;
                 }
             }
@@ -370,8 +402,6 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F, this.imageWidth, this.imageHeight, 256, 256);
 
         if (showingTagsPanel) {
-            int panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
-            int panelY = this.topPos;
             guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TAG_TEXTURE, panelX, panelY, 0.0F, 0.0F, TAG_PANEL_WIDTH, TAG_PANEL_HEIGHT, 256, 256);
         }
     }
