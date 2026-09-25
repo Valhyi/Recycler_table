@@ -24,6 +24,13 @@ import java.util.Map;
  * "items con más de una receta de crafting válida que los produce"
  * (ej. mossy_cobblestone: cobblestone+vine O cobblestone+moss_block).
  *
+ * Además de recetas realmente distintas (RecipeHolder distintos), también
+ * cuenta como "variante" cada item alternativo de un ingrediente por tag
+ * dentro de UNA misma receta (ej. crafting_table o las camas, que aceptan
+ * cualquier tipo de plank): ver TagIngredientScanner.expandGroupedVariants.
+ * Sin esto, esas recetas nunca aparecían como conflicto porque siempre se
+ * muestreaba el primer item del tag (típicamente oak).
+ *
  * El resultado queda cacheado en memoria. Ni RecyclerLogic ni el panel de
  * tags vuelven a tocar el RecipeManager para esta lista; solo leen
  * getVariantsFor(item).
@@ -55,7 +62,7 @@ public class MultiRecipeScanner {
             List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
             if (recipeIngredients.isEmpty()) continue;
 
-            List<ItemStack> samples = new ArrayList<>();
+            List<ItemStack> baseSamples = new ArrayList<>();
             boolean anyEmpty = false;
             for (Ingredient ingredient : recipeIngredients) {
                 var first = ingredient.items().findFirst();
@@ -63,37 +70,44 @@ public class MultiRecipeScanner {
                     anyEmpty = true;
                     break;
                 }
-                samples.add(new ItemStack(first.get().value()));
+                baseSamples.add(new ItemStack(first.get().value()));
             }
             if (anyEmpty) continue;
 
             // ES: Recetas de reteñido (tinte + item de cualquier color -> item de
             // otro color) no son "materiales base", se descartan igual que en
             // RecyclerLogic.findInCrafting.
-            boolean isDyeRecipe = samples.stream().anyMatch(s -> s.getItem() instanceof DyeItem);
+            boolean isDyeRecipe = baseSamples.stream().anyMatch(s -> s.getItem() instanceof DyeItem);
             if (isDyeRecipe) continue;
 
-            CraftingInput input = CraftingInput.of(samples.size(), 1, samples);
-            ItemStack output;
+            @SuppressWarnings("unchecked")
+            Recipe<CraftingInput> craftingRecipe = (Recipe<CraftingInput>) recipe;
+
+            ItemStack baseOutput;
             try {
-                @SuppressWarnings("unchecked")
-                Recipe<CraftingInput> craftingRecipe = (Recipe<CraftingInput>) recipe;
-                output = craftingRecipe.assemble(input);
+                baseOutput = craftingRecipe.assemble(CraftingInput.of(baseSamples.size(), 1, baseSamples));
             } catch (Exception ex) {
                 // ES: Algunas recetas especiales no aceptan un input sintético
                 // armado así; se ignoran y se sigue con la siguiente.
                 continue;
             }
-            if (output.isEmpty()) continue;
+            if (baseOutput.isEmpty()) continue;
 
-            Item target = output.getItem();
-            List<Item> signature = samples.stream().map(ItemStack::getItem).toList();
+            Item target = baseOutput.getItem();
+            registerVariant(found, target, baseSamples);
 
-            List<RecipeVariant> variants = found.computeIfAbsent(target, k -> new ArrayList<>());
-            boolean alreadyHasSignature = variants.stream()
-                    .anyMatch(v -> v.ingredientItems().equals(signature));
-            if (!alreadyHasSignature) {
-                variants.add(new RecipeVariant(signature));
+            // ES: Ingredientes por tag (varios items posibles) dentro de esta
+            // misma receta: una variante adicional por cada item del tag.
+            for (List<ItemStack> variantSamples : TagIngredientScanner.expandGroupedVariants(recipeIngredients, baseSamples, target)) {
+                ItemStack variantOutput;
+                try {
+                    variantOutput = craftingRecipe.assemble(CraftingInput.of(variantSamples.size(), 1, variantSamples));
+                } catch (Exception ex) {
+                    continue;
+                }
+                if (variantOutput.isEmpty() || variantOutput.getItem() != target) continue;
+
+                registerVariant(found, target, variantSamples);
             }
         }
 
@@ -110,6 +124,16 @@ public class MultiRecipeScanner {
                 + found.size() + " item(s) con conflicto");
         for (Map.Entry<Item, List<RecipeVariant>> entry : found.entrySet()) {
             LOGGER.info("[RecyclerTable]   " + entry.getKey() + " -> " + entry.getValue());
+        }
+    }
+
+    private static void registerVariant(Map<Item, List<RecipeVariant>> found, Item target, List<ItemStack> samples) {
+        List<Item> signature = samples.stream().map(ItemStack::getItem).toList();
+        List<RecipeVariant> variants = found.computeIfAbsent(target, k -> new ArrayList<>());
+        boolean alreadyHasSignature = variants.stream()
+                .anyMatch(v -> v.ingredientItems().equals(signature));
+        if (!alreadyHasSignature) {
+            variants.add(new RecipeVariant(signature));
         }
     }
 
