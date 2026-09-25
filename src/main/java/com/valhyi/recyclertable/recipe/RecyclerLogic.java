@@ -167,7 +167,10 @@ public class RecyclerLogic {
     // ES: Junta TODAS las coincidencias reales (no de reteñido) en vez de devolver la
     // primera. Si el jugador configuró una preferencia en el panel de tags para este
     // item (ver RecyclerPreferences), se usa esa; si no, se mantiene el comportamiento
-    // anterior (primera coincidencia encontrada).
+    // anterior (primera coincidencia encontrada). Además, si algún ingrediente es un tag
+    // con varios items posibles (ej. "planks"), se agrega una coincidencia extra por cada
+    // item del tag (ver TagIngredientScanner.expandGroupedVariants) para que la preferencia
+    // elegida en el panel tenga con qué coincidir durante el reciclado real.
     @SuppressWarnings("unchecked")
     private static RecipeMatch findInCrafting(ItemStack target, RecipeManager recipeManager, Level level) {
         RecipeMatch fallbackDyedMatch = null;
@@ -216,6 +219,27 @@ public class RecyclerLogic {
 
                 if (!referencesSameFamily) {
                     realMatches.add(match);
+
+                    // ES: Ingredientes por tag con varios items posibles (ej. "planks" en la
+                    // mesa de crafteo o en una cama): una coincidencia extra por cada item del
+                    // tag, sustituyendo TODAS las posiciones que comparten ese tag a la vez.
+                    for (List<ItemStack> variantSamples : TagIngredientScanner.expandGroupedVariants(recipeIngredients, samples, target.getItem())) {
+                        ItemStack variantOutput;
+                        try {
+                            variantOutput = ((Recipe<CraftingInput>) recipe).assemble(CraftingInput.of(variantSamples.size(), 1, variantSamples));
+                        } catch (Exception ex) {
+                            continue;
+                        }
+                        if (variantOutput.isEmpty() || variantOutput.getItem() != target.getItem()) continue;
+
+                        List<ItemStack> variantResult = new ArrayList<>();
+                        for (ItemStack sample : variantSamples) {
+                            ItemStack copy = sample.copy();
+                            copy.setCount(1);
+                            variantResult.add(copy);
+                        }
+                        realMatches.add(new RecipeMatch(variantResult, variantOutput.getCount()));
+                    }
                 } else if (fallbackDyedMatch == null) {
                     fallbackDyedMatch = match;
                 }
