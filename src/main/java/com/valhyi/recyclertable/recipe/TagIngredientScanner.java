@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * ES: Detecta grupos de items intercambiables usados como ingrediente en
@@ -36,17 +37,30 @@ import java.util.Map;
  *
  * ES: `expandGroupedVariants` (usado por MultiRecipeScanner y RecyclerLogic)
  * es la parte de esta clase que SÍ está conectada: dada la muestra base de
- * una receta, genera una muestra alternativa por cada item de un grupo
- * multi-item (ej. cada tipo de plank), sustituyendo TODAS las posiciones que
- * comparten ese grupo a la vez (nunca una posición sola), para que "mesa de
- * crafteo" o "cama" aparezcan como conflicto normal con una variante por
- * tipo de madera en vez de perderse detrás de siempre muestrear oak. El
- * resto de la clase (scan/getUsedGroups) queda para un sistema de grupos
- * más ambicioso que no se conectó todavía.
+ * una receta, genera muestras alternativas por cada grupo de ingrediente con
+ * 2+ items posibles (ej. cada tipo de plank). Cuando una receta tiene VARIOS
+ * grupos que representan el mismo "material" (ej. barril: 6 posiciones de
+ * tablas + 2 posiciones de losas, ambos con los mismos tipos de madera), los
+ * grupos se ENLAZAN: se genera una sola variante por material, sustituyendo
+ * TODOS los grupos enlazados a la vez (elegir cerezo pone tablas de cerezo Y
+ * losa de cerezo), en vez de una explosión combinatoria de variantes
+ * "solo tablas cambian" + "solo losas cambian". Si los grupos de una receta
+ * no comparten ningún material en común, se usa el comportamiento anterior
+ * (cada grupo expandido por separado) como respaldo.
  */
 public class TagIngredientScanner {
 
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    // ES: Sufijos conocidos de "variante de material" en items de madera y
+    // similares. Se prueban de más largo a más corto para no cortar mal
+    // (ej. "_fence_gate" antes que "_fence"). "stripped_" se saca aparte
+    // como prefijo antes de probar sufijos.
+    private static final List<String> MATERIAL_SUFFIXES = List.of(
+            "_pressure_plate", "_trapdoor", "_fence_gate", "_hanging_sign",
+            "_chest_boat", "_stairs", "_slab", "_planks", "_fence", "_door",
+            "_button", "_sign", "_boat", "_log", "_wood", "_leaves", "_sapling"
+    );
 
     // ES: clave canónica -> lista de items del grupo (para mostrar en el panel)
     private static Map<String, List<Item>> usedGroups = Collections.emptyMap();
@@ -118,18 +132,58 @@ public class TagIngredientScanner {
     }
 
     /**
+     * ES: "Material" de un item para poder enlazar grupos entre sí: el id
+     * del item sin el prefijo "stripped_" ni el sufijo de tipo conocido
+     * (_planks, _slab, _stairs, etc). "cherry_planks" y "cherry_slab" dan
+     * ambos "cherry"; un item sin sufijo reconocido devuelve su id completo
+     * (no va a coincidir con nada de otro grupo, lo cual es el
+     * comportamiento correcto: sin sufijo conocido, no se asume relación).
+     */
+    private static String materialKeyFor(Item item) {
+        String path = BuiltInRegistries.ITEM.getKey(item).getPath();
+        if (path.startsWith("stripped_")) {
+            path = path.substring("stripped_".length());
+        }
+        for (String suffix : MATERIAL_SUFFIXES) {
+            if (path.endsWith(suffix)) {
+                return path.substring(0, path.length() - suffix.length());
+            }
+        }
+        return path;
+    }
+
+    private static List<ItemStack> copySamples(List<ItemStack> baseSamples) {
+        List<ItemStack> copy = new ArrayList<>(baseSamples.size());
+        for (ItemStack sample : baseSamples) {
+            copy.add(sample.copy());
+        }
+        return copy;
+    }
+
+    /**
      * ES: Dada la muestra base (1 ItemStack por posición de la receta,
-     * mismo orden que recipeIngredients) agrupa las posiciones que
+     * mismo orden que recipeIngredients), agrupa las posiciones que
      * comparten EXACTAMENTE el mismo conjunto de items (ej. "planks"
-     * repetida en las 4 esquinas de la mesa de crafteo) y devuelve, por
-     * cada grupo con 2+ items posibles, una lista de muestras alternativas:
-     * una por cada item del grupo, con TODAS las posiciones de ese grupo
-     * sustituidas a la vez (para no generar mezclas sin sentido tipo
-     * "3 oak + 1 birch"). Grupos de un solo item (ingrediente fijo, no tag)
-     * no generan nada. excludeItem se salta como candidato (evita loops de
-     * auto-referencia, igual que sampleFromExcluding en RecyclerLogic). Los
-     * tintes (DyeItem) tampoco se ofrecen como candidato: no son un
-     * "material base" recuperable.
+     * repetida en las 4 esquinas de la mesa de crafteo, o "losas de madera"
+     * repetida en 2 posiciones del barril).
+     *
+     * - Si la receta tiene UN solo grupo con 2+ items: una variante por
+     *   item del grupo (comportamiento simple, sin cambios).
+     * - Si tiene VARIOS grupos y todos comparten al menos un "material" en
+     *   común (ver materialKeyFor) para cada material presente en TODOS los
+     *   grupos: se generan variantes ENLAZADAS, una por material, que
+     *   sustituyen TODOS los grupos a la vez (ej. barril: elegir cerezo
+     *   pone tablas de cerezo Y losa de cerezo en una sola variante, en vez
+     *   de generar tablas-de-cerezo-con-losa-de-roble y
+     *   losa-de-cerezo-con-tablas-de-roble por separado).
+     * - Si tiene varios grupos pero NINGÚN material es común a todos: se usa
+     *   el comportamiento anterior (cada grupo expandido por separado) como
+     *   respaldo, para no romper recetas con tags no relacionados entre sí.
+     *
+     * excludeItem se salta como candidato (evita loops de auto-referencia,
+     * igual que sampleFromExcluding en RecyclerLogic). Los tintes (DyeItem)
+     * tampoco se ofrecen como candidato: no son un "material base"
+     * recuperable.
      */
     public static List<List<ItemStack>> expandGroupedVariants(List<Ingredient> recipeIngredients, List<ItemStack> baseSamples, Item excludeItem) {
         List<List<ItemStack>> result = new ArrayList<>();
@@ -145,25 +199,78 @@ public class TagIngredientScanner {
             itemsByKey.putIfAbsent(key, items);
         }
 
-        for (Map.Entry<String, List<Integer>> group : positionsByKey.entrySet()) {
-            List<Integer> positions = group.getValue();
-            List<Item> groupItems = itemsByKey.get(group.getKey());
+        if (positionsByKey.isEmpty()) {
+            return result;
+        }
 
-            for (Item candidate : groupItems) {
-                if (candidate == excludeItem) continue;
-                if (candidate instanceof DyeItem) continue;
-
-                List<ItemStack> variant = new ArrayList<>(baseSamples.size());
-                for (ItemStack sample : baseSamples) {
-                    variant.add(sample.copy());
-                }
-                for (int pos : positions) {
-                    variant.set(pos, new ItemStack(candidate));
-                }
+        if (positionsByKey.size() == 1) {
+            // ES: Un solo grupo variable en la receta -> comportamiento simple de siempre.
+            Map.Entry<String, List<Integer>> group = positionsByKey.entrySet().iterator().next();
+            for (List<ItemStack> variant : expandSingleGroup(baseSamples, group.getValue(), itemsByKey.get(group.getKey()), excludeItem)) {
                 result.add(variant);
+            }
+            return result;
+        }
+
+        // ES: Varios grupos - intentar enlazarlos por material compartido.
+        // materialKey -> (groupKey -> item de ese grupo con ese material)
+        Map<String, Map<String, Item>> materialToGroupItem = new HashMap<>();
+        for (Map.Entry<String, List<Item>> entry : itemsByKey.entrySet()) {
+            String groupKey = entry.getKey();
+            for (Item item : entry.getValue()) {
+                if (item instanceof DyeItem) continue;
+                String materialKey = materialKeyFor(item);
+                materialToGroupItem.computeIfAbsent(materialKey, k -> new HashMap<>()).putIfAbsent(groupKey, item);
             }
         }
 
+        Set<String> allGroupKeys = positionsByKey.keySet();
+        List<String> commonMaterials = new ArrayList<>();
+        for (Map.Entry<String, Map<String, Item>> entry : materialToGroupItem.entrySet()) {
+            if (entry.getValue().keySet().containsAll(allGroupKeys)) {
+                commonMaterials.add(entry.getKey());
+            }
+        }
+
+        if (!commonMaterials.isEmpty()) {
+            for (String material : commonMaterials) {
+                Map<String, Item> perGroupItem = materialToGroupItem.get(material);
+
+                boolean anyExcluded = perGroupItem.values().stream().anyMatch(item -> item == excludeItem);
+                if (anyExcluded) continue;
+
+                List<ItemStack> variant = copySamples(baseSamples);
+                for (String groupKey : allGroupKeys) {
+                    Item chosen = perGroupItem.get(groupKey);
+                    for (int pos : positionsByKey.get(groupKey)) {
+                        variant.set(pos, new ItemStack(chosen));
+                    }
+                }
+                result.add(variant);
+            }
+            return result;
+        }
+
+        // ES: Respaldo: ningún material en común entre los grupos, se
+        // expande cada grupo por separado (comportamiento anterior).
+        for (Map.Entry<String, List<Integer>> group : positionsByKey.entrySet()) {
+            result.addAll(expandSingleGroup(baseSamples, group.getValue(), itemsByKey.get(group.getKey()), excludeItem));
+        }
         return result;
+    }
+
+    private static List<List<ItemStack>> expandSingleGroup(List<ItemStack> baseSamples, List<Integer> positions, List<Item> groupItems, Item excludeItem) {
+        List<List<ItemStack>> variants = new ArrayList<>();
+        for (Item candidate : groupItems) {
+            if (candidate == excludeItem) continue;
+            if (candidate instanceof DyeItem) continue;
+
+            List<ItemStack> variant = copySamples(baseSamples);
+            for (int pos : positions) {
+                variant.set(pos, new ItemStack(candidate));
+            }
+            variants.add(variant);
+        }
+        return variants;
     }
 }
