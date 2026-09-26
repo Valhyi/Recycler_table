@@ -38,6 +38,27 @@ import java.util.Map;
  * NOTA: si se usa /reload en el server, este caché queda desactualizado
  * hasta el próximo reinicio. Aceptable para v1; se puede enganchar también
  * a un evento de recarga de datapacks más adelante si hace falta.
+ *
+ * ES: Además del mapa plano de siempre (multiRecipeItems), este escaneo
+ * también arma unlinkedGroupsByTarget: para items cuya receta tiene 2+
+ * grupos de ingrediente intercambiable SIN material en común (ej. fogata:
+ * logs + coals; cama: planks + wool — ver TagIngredientScanner.groupsShareMaterial),
+ * guarda cada grupo POR SEPARADO en vez de mezclar sus variantes en una
+ * sola lista plana. Esto es lo que permite que el panel de tags muestre una
+ * fila de conflicto independiente por grupo (con su propio ícono y su
+ * propia cuenta de variantes) en vez del bug anterior: un solo ícono
+ * repetido y una cuenta de variantes inflada, producto de mezclar
+ * variantes de grupos que en realidad son independientes entre sí (elegir
+ * el tipo de log no tiene nada que ver con elegir carbón vs carbón
+ * vegetal). El caso enlazado (barril: planks+slabs comparten material) NO
+ * entra aquí — sigue resuelto como una sola fila por multiRecipeItems, tal
+ * como ya funcionaba.
+ *
+ * Este mapa es puramente aditivo: no reemplaza ni modifica
+ * multiRecipeItems, RecyclerPreferences, ni RecyclerLogic. Por ahora solo
+ * expone los datos (hasUnlinkedGroups / getUnlinkedGroupsFor); conectarlo al
+ * panel de tags (RecyclerScreen) y a la resolución de preferencias
+ * (RecyclerPreferences / RecyclerLogic) es el siguiente paso pendiente.
  */
 public class MultiRecipeScanner {
 
@@ -50,6 +71,20 @@ public class MultiRecipeScanner {
      */
     public record RecipeVariant(List<Item> ingredientItems) {}
 
+    /**
+     * ES: Un grupo de variantes que comparten origen (mismo grupo de
+     * ingrediente intercambiable dentro de una receta, ej. "coals" o
+     * "logs" en la fogata). "key" es la clave canónica del grupo (ver
+     * TagIngredientScanner.canonicalKey) - estable entre escaneos mientras
+     * el conjunto de items del grupo no cambie. "positions" son los índices
+     * dentro de la firma completa (RecipeVariant.ingredientItems) que este
+     * grupo realmente controla - necesario para saber qué ítem de la firma
+     * usar como ícono (ver getGroupDisplayItem), ya que NO siempre es la
+     * posición 0 (ej. en la fogata, el grupo "coals" está en la posición 4,
+     * no en la 0).
+     */
+    public record VariantGroup(String key, List<Integer> positions, List<RecipeVariant> variants) {}
+
     private static Map<Item, List<RecipeVariant>> multiRecipeItems = Collections.emptyMap();
 
     // ES: Por cada item objetivo, la posición del ingrediente que REALMENTE
@@ -60,10 +95,15 @@ public class MultiRecipeScanner {
     // 12 veces el mismo ícono de lana en vez de las distintas tablas.
     private static Map<Item, Integer> displayIndexByTarget = Collections.emptyMap();
 
+    // ES: Ver el bloque de comentarios de la clase. Solo tiene entradas para
+    // items cuya receta tiene 2+ grupos SIN material en común entre sí.
+    private static Map<Item, List<VariantGroup>> unlinkedGroupsByTarget = Collections.emptyMap();
+
     private static volatile boolean scanned = false;
 
     public static void scan(RecipeManager recipeManager) {
         Map<Item, List<RecipeVariant>> found = new HashMap<>();
+        Map<Item, List<VariantGroup>> unlinkedGroups = new HashMap<>();
 
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
             Recipe<?> recipe = holder.value();
@@ -118,6 +158,14 @@ public class MultiRecipeScanner {
 
                 registerVariant(found, target, variantSamples);
             }
+
+            // ES: NUEVO — si esta receta tiene 2+ grupos de ingrediente
+            // intercambiable SIN material en común, registrarlos también
+            // como grupos independientes (ver comentario de clase).
+            List<TagIngredientScanner.IngredientGroup> detectedGroups = TagIngredientScanner.detectGroups(recipeIngredients);
+            if (detectedGroups.size() >= 2 && !TagIngredientScanner.groupsShareMaterial(detectedGroups)) {
+                registerUnlinkedGroups(unlinkedGroups, target, baseSamples, detectedGroups);
+            }
         }
 
         // ES: Solo interesan los items con 2+ recetas distintas (conflicto real),
@@ -126,6 +174,11 @@ public class MultiRecipeScanner {
         found.entrySet().removeIf(entry -> entry.getValue().size() < 2
                 || new ItemStack(entry.getKey()).is(RecyclerLogic.BLACKLISTED_FROM_RECYCLING));
 
+        // ES: Un target solo puede tener grupos independientes si sigue
+        // siendo un conflicto real tras el filtro de arriba (ej. si quedó
+        // fuera por blacklist, tampoco tiene sentido mostrar sus grupos).
+        unlinkedGroups.keySet().retainAll(found.keySet());
+
         Map<Item, Integer> displayIndex = new HashMap<>();
         for (Map.Entry<Item, List<RecipeVariant>> entry : found.entrySet()) {
             displayIndex.put(entry.getKey(), computeDisplayIndex(entry.getValue()));
@@ -133,12 +186,22 @@ public class MultiRecipeScanner {
 
         multiRecipeItems = found;
         displayIndexByTarget = displayIndex;
+        unlinkedGroupsByTarget = unlinkedGroups;
         scanned = true;
 
         LOGGER.info("[RecyclerTable] Escaneo de recetas multiples completo: "
                 + found.size() + " item(s) con conflicto");
         for (Map.Entry<Item, List<RecipeVariant>> entry : found.entrySet()) {
             LOGGER.info("[RecyclerTable]   " + entry.getKey() + " -> " + entry.getValue());
+        }
+
+        LOGGER.info("[RecyclerTable] Escaneo de grupos independientes completo: "
+                + unlinkedGroups.size() + " item(s) con grupos sin material en comun");
+        for (Map.Entry<Item, List<VariantGroup>> entry : unlinkedGroups.entrySet()) {
+            for (VariantGroup group : entry.getValue()) {
+                LOGGER.info("[RecyclerTable]   " + entry.getKey() + " / grupo \"" + group.key()
+                        + "\" -> " + group.variants().size() + " variante(s)");
+            }
         }
     }
 
@@ -149,6 +212,46 @@ public class MultiRecipeScanner {
                 .anyMatch(v -> v.ingredientItems().equals(signature));
         if (!alreadyHasSignature) {
             variants.add(new RecipeVariant(signature));
+        }
+    }
+
+    /**
+     * ES: Para cada grupo detectado en la receta, arma sus propias
+     * RecipeVariant (una por item del grupo, sustituyendo SOLO las
+     * posiciones de ese grupo sobre la base — todo lo demás queda en su
+     * valor base) y las guarda bajo su propia clave, sin mezclarlas con las
+     * de otros grupos. Si dos recetas distintas que producen el mismo
+     * target comparten la misma clave de grupo, no se duplica el grupo.
+     */
+    private static void registerUnlinkedGroups(Map<Item, List<VariantGroup>> unlinkedGroups, Item target,
+                                                 List<ItemStack> baseSamples,
+                                                 List<TagIngredientScanner.IngredientGroup> groups) {
+        List<VariantGroup> existingGroups = unlinkedGroups.computeIfAbsent(target, k -> new ArrayList<>());
+
+        for (TagIngredientScanner.IngredientGroup group : groups) {
+            boolean alreadyRegistered = existingGroups.stream().anyMatch(vg -> vg.key().equals(group.key()));
+            if (alreadyRegistered) continue;
+
+            List<RecipeVariant> variants = new ArrayList<>();
+            for (Item candidate : group.items()) {
+                if (candidate == target) continue;
+                if (candidate instanceof DyeItem) continue;
+
+                List<ItemStack> variantSamples = new ArrayList<>(baseSamples.size());
+                for (ItemStack sample : baseSamples) {
+                    variantSamples.add(sample.copy());
+                }
+                for (int pos : group.positions()) {
+                    variantSamples.set(pos, new ItemStack(candidate));
+                }
+
+                List<Item> signature = variantSamples.stream().map(ItemStack::getItem).toList();
+                variants.add(new RecipeVariant(signature));
+            }
+
+            if (!variants.isEmpty()) {
+                existingGroups.add(new VariantGroup(group.key(), group.positions(), variants));
+            }
         }
     }
 
@@ -214,5 +317,39 @@ public class MultiRecipeScanner {
         int idx = displayIndexByTarget.getOrDefault(target, 0);
         if (idx < 0 || idx >= items.size()) idx = 0;
         return items.get(idx);
+    }
+
+    /**
+     * ES: true si este target tiene 2+ grupos de ingrediente intercambiable
+     * SIN material en común entre sí (ej. fogata, cama). El panel de tags
+     * puede usar esto para decidir si debe mostrar varias filas de
+     * conflicto para este item en vez de una sola.
+     */
+    public static boolean hasUnlinkedGroups(Item target) {
+        return unlinkedGroupsByTarget.containsKey(target);
+    }
+
+    /**
+     * ES: Los grupos independientes de este target (vacío si
+     * hasUnlinkedGroups(target) es false). Cada VariantGroup trae su propia
+     * clave y su propia lista de variantes, ya lista para usarse como una
+     * fila de conflicto separada.
+     */
+    public static List<VariantGroup> getUnlinkedGroupsFor(Item target) {
+        return unlinkedGroupsByTarget.getOrDefault(target, Collections.emptyList());
+    }
+
+    /**
+     * ES: Ítem representativo de un grupo independiente, para usar como
+     * ícono de esa fila en el panel de tags: se lee de la primera posición
+     * real del grupo (group.positions()) dentro de la primera variante, NO
+     * de la posición 0 de la firma completa (que puede pertenecer a otro
+     * grupo, o ser un ingrediente fijo — ej. el stick de la fogata).
+     */
+    public static Item getGroupDisplayItem(VariantGroup group) {
+        if (group.variants().isEmpty() || group.positions().isEmpty()) return null;
+        List<Item> firstSignature = group.variants().get(0).ingredientItems();
+        int pos = group.positions().get(0);
+        return pos >= 0 && pos < firstSignature.size() ? firstSignature.get(pos) : null;
     }
 }
