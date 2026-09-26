@@ -18,6 +18,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +49,15 @@ import java.util.Set;
  * "solo tablas cambian" + "solo losas cambian". Si los grupos de una receta
  * no comparten ningún material en común, se usa el comportamiento anterior
  * (cada grupo expandido por separado) como respaldo.
+ *
+ * ES: `detectGroups` / `groupsShareMaterial` son la versión "cruda" de ese
+ * mismo análisis, usada por MultiRecipeScanner para decidir si una receta
+ * con 2+ grupos debe exponerse como VARIAS filas de conflicto independientes
+ * en el panel de tags (grupos sin material en común, ej. fogata: logs +
+ * coals) o como una sola (grupos enlazados, ej. barril). No generan
+ * muestras de ItemStack, solo devuelven qué posiciones/items componen cada
+ * grupo; expandGroupedVariants sigue siendo la única fuente de verdad para
+ * armar las muestras reales.
  */
 public class TagIngredientScanner {
 
@@ -272,5 +283,81 @@ public class TagIngredientScanner {
             variants.add(variant);
         }
         return variants;
+    }
+
+    // ================= NUEVO: detección "cruda" de grupos (sin generar ItemStacks) =================
+
+    /**
+     * ES: Info de UN grupo de ingrediente intercambiable (2+ items
+     * posibles) dentro de una receta: la clave canónica del grupo, las
+     * posiciones que ocupa, y los items que acepta.
+     */
+    public record IngredientGroup(String key, List<Integer> positions, List<Item> items) {}
+
+    /**
+     * ES: Detecta los grupos de ingrediente intercambiable de una receta,
+     * SIN resolver todavía si están enlazados por material entre sí (eso lo
+     * hace groupsShareMaterial). Es la misma detección de posiciones/items
+     * que ya hacía expandGroupedVariants internamente, pero expuesta como
+     * dato reutilizable en vez de generar muestras directamente.
+     *
+     * Usado por MultiRecipeScanner para decidir si una receta con 2+ grupos
+     * debe exponerse como varias filas de conflicto independientes en el
+     * panel de tags (grupos sin material en común, ej. fogata: logs +
+     * coals) o como una sola fila (grupos enlazados por material, ej.
+     * barril: planks + slabs — ese caso ya lo resuelve
+     * expandGroupedVariants generando variantes enlazadas, no requiere
+     * filas separadas).
+     */
+    public static List<IngredientGroup> detectGroups(List<Ingredient> recipeIngredients) {
+        Map<String, List<Integer>> positionsByKey = new LinkedHashMap<>();
+        Map<String, List<Item>> itemsByKey = new LinkedHashMap<>();
+
+        for (int i = 0; i < recipeIngredients.size(); i++) {
+            List<Item> items = recipeIngredients.get(i).items().map(Holder::value).distinct().toList();
+            if (items.size() < 2) continue;
+
+            String key = canonicalKey(items);
+            positionsByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(i);
+            itemsByKey.putIfAbsent(key, items);
+        }
+
+        List<IngredientGroup> result = new ArrayList<>();
+        for (String key : positionsByKey.keySet()) {
+            result.add(new IngredientGroup(key, positionsByKey.get(key), itemsByKey.get(key)));
+        }
+        return result;
+    }
+
+    /**
+     * ES: Determina si TODOS los grupos dados comparten al menos un
+     * "material" en común (ver materialKeyFor) que aparezca en cada uno de
+     * ellos - el mismo criterio que ya usa expandGroupedVariants para
+     * decidir entre "variantes enlazadas" y "cada grupo por separado". Con
+     * 0 o 1 grupo se considera "enlazado" por defecto (no hay nada que
+     * separar en filas independientes).
+     */
+    public static boolean groupsShareMaterial(List<IngredientGroup> groups) {
+        if (groups.size() < 2) return true;
+
+        Map<String, Set<String>> materialToGroups = new HashMap<>();
+        for (IngredientGroup group : groups) {
+            for (Item item : group.items()) {
+                if (item instanceof DyeItem) continue;
+                materialToGroups.computeIfAbsent(materialKeyFor(item), k -> new HashSet<>()).add(group.key());
+            }
+        }
+
+        Set<String> allGroupKeys = new HashSet<>();
+        for (IngredientGroup group : groups) {
+            allGroupKeys.add(group.key());
+        }
+
+        for (Set<String> groupsForMaterial : materialToGroups.values()) {
+            if (groupsForMaterial.containsAll(allGroupKeys)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
