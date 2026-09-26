@@ -22,7 +22,6 @@ import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 
 public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
@@ -33,19 +32,25 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private static final int TAG_PANEL_WIDTH = 120;
     private static final int TAG_PANEL_HEIGHT = 166;
 
-    // ES: Sin label de conteo de conflictos ni botones de scroll visibles
-    // (^/v): el scroll ahora es con la rueda del mouse sobre cada zona
-    // (ver mouseScrolled), invisible. Layout recalculado para aprovechar
-    // el espacio liberado.
-    private static final int LIST_TOP = 4;
-    private static final int ROW_HEIGHT = 18; // filas con 2 iconos de 16px
-    private static final int VISIBLE_ROWS = 4; // 4 + 4*18 = 76
-    private static final int DETAIL_LABEL_Y = LIST_TOP + VISIBLE_ROWS * ROW_HEIGHT + 6; // 82
-    private static final int VARIANT_GRID_Y = DETAIL_LABEL_Y + 12; // 94
+    // ES: Layout lado a lado: columna de lista (izquierda, solo icono del
+    // item) + grid de variantes (derecha, ocupa casi toda la altura del
+    // panel). Reemplaza el layout anterior de lista-arriba/grid-abajo.
+    // El scroll sigue siendo con la rueda del mouse sobre cada zona
+    // (ver mouseScrolled), invisible, sin botones ^/v.
+    private static final int PANEL_PAD = 2;
+
+    private static final int LIST_COLUMN_WIDTH = 18; // 1 icono de 16px + margen
+    private static final int LIST_GRID_GAP = 4;       // separación entre lista y grid
+    private static final int ROW_HEIGHT = 18;
+    private static final int VISIBLE_ROWS = 9;        // (166 - 2*PAD) / ROW_HEIGHT
+
+    private static final int DETAIL_LABEL_HEIGHT = 10;
+    private static final int DETAIL_GRID_GAP = 2;
+
     private static final int VARIANT_ICON_SIZE = 18;
-    private static final int VARIANT_COLS = 6;
-    private static final int VARIANT_ROWS = 3; // 94 + 3*18 = 148, entra en 166. Si desborda, bajar a 2.
-    private static final int MAX_VARIANT_SLOTS = VARIANT_COLS * VARIANT_ROWS; // 18 visibles, resto por scroll
+    private static final int VARIANT_COLS = 5;
+    private static final int VARIANT_ROWS = 8;
+    private static final int MAX_VARIANT_SLOTS = VARIANT_COLS * VARIANT_ROWS; // 40 visibles, resto por scroll
 
     private static final WidgetSprites PLAY_SPRITES = new WidgetSprites(
             RecyclerTable.resLoc("widget/play_button"),
@@ -91,6 +96,15 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     private int panelX;
     private int panelY;
+
+    // ES: Posiciones derivadas (relativas a panelX/panelY), calculadas una
+    // vez en init() para no repetir la aritmética en cada método.
+    private int listX;
+    private int listY;
+    private int gridX;
+    private int gridY;
+    private int detailY;
+    private int detailLabelWidth;
 
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, 176, 166);
@@ -138,18 +152,29 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         this.panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
         this.panelY = this.topPos;
 
-        // ES: Filas de conflictos - cada una con icono objetivo + icono de
-        // preferencia actual. Tocar la fila la selecciona. Scroll: rueda
-        // del mouse sobre esta zona (ver mouseScrolled).
+        // ES: Columna de lista (izquierda, angosta) y grid de variantes
+        // (derecha, alto) calculados a partir del padding del panel.
+        this.listX = panelX + PANEL_PAD;
+        this.listY = panelY + PANEL_PAD;
+        this.gridX = listX + LIST_COLUMN_WIDTH + LIST_GRID_GAP;
+        this.detailY = panelY + PANEL_PAD;
+        this.gridY = detailY + DETAIL_LABEL_HEIGHT + DETAIL_GRID_GAP;
+        this.detailLabelWidth = TAG_PANEL_WIDTH - (gridX - panelX) - PANEL_PAD;
+
+        // ES: Filas de conflictos - columna angosta a la izquierda, solo el
+        // icono del item objetivo (ya no entra el icono de "preferencia
+        // actual" al lado). Tocar la fila la selecciona. Scroll: rueda del
+        // mouse sobre esta columna (ver mouseScrolled).
         for (int i = 0; i < VISIBLE_ROWS; i++) {
             final int rowOffset = i;
             this.rowButtons[i] = this.addRenderableWidget(new ConflictRowButton(
-                    panelX + 2, panelY + LIST_TOP + i * ROW_HEIGHT, TAG_PANEL_WIDTH - 4, ROW_HEIGHT - 1,
+                    listX, listY + i * ROW_HEIGHT, LIST_COLUMN_WIDTH, ROW_HEIGHT - 1,
                     button -> selectRow(rowOffset)
             ));
         }
 
-        // ES: Grid de iconos de variantes - tocar un icono aplica esa
+        // ES: Grid de iconos de variantes - a la derecha de la lista, ocupa
+        // casi toda la altura del panel. Tocar un icono aplica esa
         // preferencia al instante. Scroll: rueda del mouse sobre esta zona
         // (ver mouseScrolled). slotIndex es la posicion dentro del grid
         // visible; selectVariant() lo traduce al indice real sumando el
@@ -159,13 +184,13 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             int col = i % VARIANT_COLS;
             int row = i / VARIANT_COLS;
             this.variantButtons[i] = this.addRenderableWidget(new ItemIconButton(
-                    panelX + 2 + col * VARIANT_ICON_SIZE, panelY + VARIANT_GRID_Y + row * VARIANT_ICON_SIZE, 16,
+                    gridX + col * VARIANT_ICON_SIZE, gridY + row * VARIANT_ICON_SIZE, 16,
                     button -> selectVariant(slotIndex)
             ));
         }
 
         this.detailLabel = this.addRenderableWidget(new StringWidget(
-                panelX + 2, panelY + DETAIL_LABEL_Y, TAG_PANEL_WIDTH - 4, 10, Component.empty(), this.font));
+                gridX, detailY, detailLabelWidth, DETAIL_LABEL_HEIGHT, Component.empty(), this.font));
 
         this.conflictItems = new ArrayList<>(MultiRecipeScanner.getMultiRecipeItems().keySet());
         this.conflictItems.sort(Comparator.comparing(item -> BuiltInRegistries.ITEM.getKey(item).toString()));
@@ -182,7 +207,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     /**
      * ES: Scroll invisible con la rueda del mouse. Si el cursor esta sobre
-     * la lista de conflictos, mueve scrollOffset; si esta sobre el grid de
+     * la columna de conflictos, mueve scrollOffset; si esta sobre el grid de
      * variantes, mueve variantScrollOffset. Firma vanilla estandar de esta
      * franja de versiones (Screen#mouseScrolled); si el compilador la
      * rechaza, revisar la firma real igual que se hizo con
@@ -191,20 +216,18 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (showingTagsPanel && !conflictItems.isEmpty() && scrollY != 0) {
-            int panelLeft = panelX + 2;
-            int panelRight = panelX + TAG_PANEL_WIDTH - 2;
             int direction = scrollY < 0 ? 1 : -1;
 
-            int listTop = panelY + LIST_TOP;
-            int listBottom = listTop + VISIBLE_ROWS * ROW_HEIGHT;
-            if (mouseX >= panelLeft && mouseX < panelRight && mouseY >= listTop && mouseY < listBottom) {
+            int listRight = listX + LIST_COLUMN_WIDTH;
+            int listBottom = listY + VISIBLE_ROWS * ROW_HEIGHT;
+            if (mouseX >= listX && mouseX < listRight && mouseY >= listY && mouseY < listBottom) {
                 scrollListBy(direction);
                 return true;
             }
 
-            int variantTop = panelY + VARIANT_GRID_Y;
-            int variantBottom = variantTop + VARIANT_ROWS * VARIANT_ICON_SIZE;
-            if (mouseX >= panelLeft && mouseX < panelRight && mouseY >= variantTop && mouseY < variantBottom) {
+            int gridRight = gridX + VARIANT_COLS * VARIANT_ICON_SIZE;
+            int gridBottom = gridY + VARIANT_ROWS * VARIANT_ICON_SIZE;
+            if (mouseX >= gridX && mouseX < gridRight && mouseY >= gridY && mouseY < gridBottom) {
                 scrollVariantsBy(direction);
                 return true;
             }
@@ -241,7 +264,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         String text = variants.isEmpty()
                 ? name + " (sin variantes)"
                 : name + " (" + (selectedVariantIndex + 1) + "/" + variants.size() + ")";
-        detailLabel.setMessage(Component.literal(this.font.plainSubstrByWidth(text, TAG_PANEL_WIDTH - 6)));
+        detailLabel.setMessage(Component.literal(this.font.plainSubstrByWidth(text, detailLabelWidth)));
     }
 
     private void updateRowButtons() {
@@ -253,8 +276,11 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             if (showingTagsPanel && itemIndex < conflictItems.size()) {
                 Item item = conflictItems.get(itemIndex);
                 ItemStack targetIcon = new ItemStack(item);
-                ItemStack prefIcon = getPreferredIcon(item);
-                rowButton.setContent(targetIcon, prefIcon, itemIndex == selectedIndex);
+                // ES: Ya no se muestra el icono de "preferencia actual" en la
+                // fila (no entra en la columna angosta); solo el icono del
+                // item objetivo. La preferencia actual se ve en el grid de
+                // variantes cuando esta fila esta seleccionada.
+                rowButton.setContent(targetIcon, ItemStack.EMPTY, itemIndex == selectedIndex);
                 rowButton.visible = true;
             } else {
                 rowButton.visible = false;
@@ -365,35 +391,6 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 }
             }
         });
-    }
-
-    /**
-     * ES: Calcula que icono mostrar en la fila de la lista como "preferencia
-     * actual" para un item cualquiera (no necesariamente el seleccionado).
-     * Mismo criterio que loadCurrentPreferenceIndex, pero sin tocar el
-     * estado de seleccion (se usa para TODAS las filas visibles, no solo
-     * la activa).
-     */
-    private ItemStack getPreferredIcon(Item target) {
-        List<MultiRecipeScanner.RecipeVariant> variants = MultiRecipeScanner.getVariantsFor(target);
-        if (variants.isEmpty()) return ItemStack.EMPTY;
-
-        var server = net.minecraft.client.Minecraft.getInstance().getSingleplayerServer();
-        if (server != null) {
-            RecyclerPreferences prefs = RecyclerPreferences.get(server);
-            Optional<List<Item>> preferred = prefs.getPreference(target);
-            if (preferred.isPresent()) {
-                List<Item> wanted = preferred.get();
-                for (MultiRecipeScanner.RecipeVariant variant : variants) {
-                    if (variant.ingredientItems().equals(wanted)) {
-                        return new ItemStack(variant.ingredientItems().get(0));
-                    }
-                }
-            }
-        }
-
-        // ES: Sin preferencia guardada -> primera variante (comportamiento por defecto)
-        return new ItemStack(variants.get(0).ingredientItems().get(0));
     }
 
     @Override
