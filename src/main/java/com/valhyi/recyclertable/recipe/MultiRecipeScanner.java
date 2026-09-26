@@ -51,6 +51,15 @@ public class MultiRecipeScanner {
     public record RecipeVariant(List<Item> ingredientItems) {}
 
     private static Map<Item, List<RecipeVariant>> multiRecipeItems = Collections.emptyMap();
+
+    // ES: Por cada item objetivo, la posición del ingrediente que REALMENTE
+    // cambia entre sus variantes (ver computeDisplayIndex). El panel de tags
+    // usa esto para dibujar el ícono correcto en el grid: sin esto, siempre
+    // se mostraba ingredientItems().get(0), que en recetas como la cama
+    // (lana fija en la posición 0, tabla variable en otra posición) mostraba
+    // 12 veces el mismo ícono de lana en vez de las distintas tablas.
+    private static Map<Item, Integer> displayIndexByTarget = Collections.emptyMap();
+
     private static volatile boolean scanned = false;
 
     public static void scan(RecipeManager recipeManager) {
@@ -117,7 +126,13 @@ public class MultiRecipeScanner {
         found.entrySet().removeIf(entry -> entry.getValue().size() < 2
                 || new ItemStack(entry.getKey()).is(RecyclerLogic.BLACKLISTED_FROM_RECYCLING));
 
+        Map<Item, Integer> displayIndex = new HashMap<>();
+        for (Map.Entry<Item, List<RecipeVariant>> entry : found.entrySet()) {
+            displayIndex.put(entry.getKey(), computeDisplayIndex(entry.getValue()));
+        }
+
         multiRecipeItems = found;
+        displayIndexByTarget = displayIndex;
         scanned = true;
 
         LOGGER.info("[RecyclerTable] Escaneo de recetas multiples completo: "
@@ -137,6 +152,44 @@ public class MultiRecipeScanner {
         }
     }
 
+    /**
+     * ES: Encuentra la primera posición de ingrediente que NO es igual en
+     * todas las variantes de la lista (la posición "que realmente cambia").
+     * Si por algún motivo ninguna posición varía (no debería pasar, ya que
+     * registerVariant descarta firmas duplicadas), devuelve 0 como respaldo.
+     */
+    private static int computeDisplayIndex(List<RecipeVariant> variants) {
+        if (variants.isEmpty()) return 0;
+
+        int maxLen = 0;
+        for (RecipeVariant v : variants) {
+            maxLen = Math.max(maxLen, v.ingredientItems().size());
+        }
+
+        for (int i = 0; i < maxLen; i++) {
+            Item reference = null;
+            boolean referenceSet = false;
+            boolean varies = false;
+
+            for (RecipeVariant v : variants) {
+                List<Item> items = v.ingredientItems();
+                Item current = i < items.size() ? items.get(i) : null;
+
+                if (!referenceSet) {
+                    reference = current;
+                    referenceSet = true;
+                } else if (current != reference) {
+                    varies = true;
+                    break;
+                }
+            }
+
+            if (varies) return i;
+        }
+
+        return 0;
+    }
+
     public static boolean isScanned() {
         return scanned;
     }
@@ -147,5 +200,19 @@ public class MultiRecipeScanner {
 
     public static List<RecipeVariant> getVariantsFor(Item item) {
         return multiRecipeItems.getOrDefault(item, Collections.emptyList());
+    }
+
+    /**
+     * ES: Devuelve el Item que se debe usar como ícono para esta variante de
+     * este item objetivo: la posición que realmente distingue una variante
+     * de otra (ver computeDisplayIndex), no siempre la posición 0.
+     */
+    public static Item getDisplayItem(Item target, RecipeVariant variant) {
+        List<Item> items = variant.ingredientItems();
+        if (items.isEmpty()) return target;
+
+        int idx = displayIndexByTarget.getOrDefault(target, 0);
+        if (idx < 0 || idx >= items.size()) idx = 0;
+        return items.get(idx);
     }
 }
