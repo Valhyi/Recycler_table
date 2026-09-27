@@ -94,6 +94,22 @@ public class RecyclerLogic {
     }
 
     private static RecipeMatch findByPriority(ItemStack target, RecipeManager recipeManager, Level level) {
+        // ES: Caso especial - items cuya (única) receta de crafting tiene 2+
+        // grupos de tag SIN material en común (ej. fogata: logs + coals; ver
+        // MultiRecipeScanner.hasUnlinkedGroups). Para estos, el jugador puede
+        // haber configurado una preferencia INDEPENDIENTE por cada grupo desde
+        // el panel de tags (ver RecyclerPreferences.getGroupPreference), algo
+        // que el resto de findInCrafting no puede resolver porque solo conoce
+        // variantes que cambian UN grupo a la vez respecto a la base (nunca
+        // "cerezo Y carbón vegetal simultáneamente" si esa combinación exacta
+        // no fue pre-generada). Se resuelve aparte, combinando las elecciones
+        // guardadas directamente sobre la receta real, antes de intentar el
+        // resto de las prioridades normales.
+        if (MultiRecipeScanner.hasUnlinkedGroups(target.getItem())) {
+            RecipeMatch combined = findWithGroupPreferences(target, recipeManager, level);
+            if (combined != null) return combined;
+        }
+
         RecipeMatch found;
 
         found = findInStonecutter(target, recipeManager);
@@ -130,6 +146,91 @@ public class RecyclerLogic {
             samples.add(match.isPresent() ? new ItemStack(match.get().value()) : ItemStack.EMPTY);
         }
         return samples;
+    }
+
+    /**
+     * ES: Resuelve el caso "fogata": una receta con 2+ grupos de tag sin
+     * material en común, combinando la preferencia guardada de CADA grupo
+     * (RecyclerPreferences.getGroupPreference) sobre la muestra base de la
+     * receta real. Un grupo sin preferencia guardada conserva su item base
+     * (el mismo comportamiento que si nunca se hubiera tocado el panel de
+     * tags). Se re-ensambla la receta con la combinación final para
+     * confirmar que sigue produciendo el item objetivo antes de devolverla.
+     *
+     * Busca sobre TODAS las recetas de crafting (no solo la "esperada") por
+     * si en el futuro más de una receta produce el mismo target con grupos
+     * propios; en la práctica hoy es siempre una sola.
+     */
+    @SuppressWarnings("unchecked")
+    private static RecipeMatch findWithGroupPreferences(ItemStack target, RecipeManager recipeManager, Level level) {
+        if (level == null || level.getServer() == null) return null;
+
+        RecyclerPreferences prefs = RecyclerPreferences.get(level.getServer());
+
+        for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
+            Recipe<?> recipe = holder.value();
+
+            List<Ingredient> recipeIngredients = recipe.placementInfo().ingredients();
+            if (recipeIngredients.isEmpty()) continue;
+
+            List<ItemStack> baseSamples = sampleFromExcluding(recipeIngredients, target.getItem());
+            if (baseSamples.stream().anyMatch(ItemStack::isEmpty)) continue;
+
+            ItemStack baseOutput;
+            try {
+                baseOutput = ((Recipe<CraftingInput>) recipe).assemble(CraftingInput.of(baseSamples.size(), 1, baseSamples));
+            } catch (Exception ex) {
+                continue;
+            }
+            if (baseOutput.isEmpty() || baseOutput.getItem() != target.getItem()) continue;
+
+            List<TagIngredientScanner.IngredientGroup> groups = TagIngredientScanner.detectGroups(recipeIngredients);
+            if (groups.size() < 2 || TagIngredientScanner.groupsShareMaterial(groups)) {
+                // ES: Esta receta en particular no es del caso "grupos sin
+                // material en común" - no aplica aquí, se sigue buscando (o
+                // se descarta si no hay más recetas de este target).
+                continue;
+            }
+
+            List<ItemStack> finalSamples = new ArrayList<>(baseSamples.size());
+            for (ItemStack sample : baseSamples) {
+                finalSamples.add(sample.copy());
+            }
+
+            for (TagIngredientScanner.IngredientGroup group : groups) {
+                Optional<Item> preferred = prefs.getGroupPreference(target.getItem(), group.key());
+                if (preferred.isEmpty()) continue;
+
+                Item chosen = preferred.get();
+                // ES: Ignorar preferencias inválidas (ej. el datapack cambió y
+                // ese item ya no pertenece al grupo, o apunta al propio
+                // objetivo) en vez de romper el reciclaje: se conserva el
+                // item base de ese grupo para esta unidad.
+                if (chosen == target.getItem() || !group.items().contains(chosen)) continue;
+
+                for (int pos : group.positions()) {
+                    finalSamples.set(pos, new ItemStack(chosen));
+                }
+            }
+
+            ItemStack finalOutput;
+            try {
+                finalOutput = ((Recipe<CraftingInput>) recipe).assemble(CraftingInput.of(finalSamples.size(), 1, finalSamples));
+            } catch (Exception ex) {
+                continue;
+            }
+            if (finalOutput.isEmpty() || finalOutput.getItem() != target.getItem()) continue;
+
+            List<ItemStack> result = new ArrayList<>();
+            for (ItemStack sample : finalSamples) {
+                ItemStack copy = sample.copy();
+                copy.setCount(1);
+                result.add(copy);
+            }
+            return new RecipeMatch(result, finalOutput.getCount());
+        }
+
+        return null;
     }
 
     // ================= STONECUTTER =================
