@@ -28,6 +28,12 @@ public class ModNetworking {
                 RecyclerPreferencePayload.STREAM_CODEC,
                 ModNetworking::handlePreferencePacket
         );
+
+        registrar.playToServer(
+                RecyclerGroupPreferencePayload.TYPE,
+                RecyclerGroupPreferencePayload.STREAM_CODEC,
+                ModNetworking::handleGroupPreferencePacket
+        );
     }
 
     private static void handleButtonPacket(RecyclerButtonPayload payload, IPayloadContext context) {
@@ -58,6 +64,24 @@ public class ModNetworking {
 
             RecyclerPreferences prefs = RecyclerPreferences.get(player.level().getServer());
             prefs.setPreference(payload.target(), payload.ingredientSignature());
+        });
+    }
+
+    /**
+     * ES: El jugador eligió, desde el panel de tags, qué item usar para UN
+     * grupo de tag en particular de un item con 2+ grupos sin material en
+     * común (ej. fogata: logs + coals). Guarda la preferencia de ESE grupo
+     * nada más (ver RecyclerPreferences.setGroupPreference);
+     * RecyclerLogic.findWithGroupPreferences la combina con la de los
+     * demás grupos en el próximo reciclaje de ese item.
+     */
+    private static void handleGroupPreferencePacket(RecyclerGroupPreferencePayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            ServerPlayer player = (ServerPlayer) context.player();
+            if (player == null) return;
+
+            RecyclerPreferences prefs = RecyclerPreferences.get(player.level().getServer());
+            prefs.setGroupPreference(payload.target(), payload.groupKey(), payload.chosenItem());
         });
     }
 }
