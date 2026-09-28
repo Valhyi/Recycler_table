@@ -19,6 +19,11 @@ import net.minecraft.world.item.Item;
  * "cerezo" para logs y "carbón vegetal" para coals en una sola unidad.
  * Ver RecyclerPreferences.setGroupPreference y
  * RecyclerLogic.findWithGroupPreferences.
+ *
+ * ES: El límite de la clave del grupo es 32767 (máximo de Minecraft para un
+ * String) porque la clave canónica de grupos grandes (ej. todos los troncos,
+ * maderas y tallos) supera los 1100 caracteres. Con 1024 el paquete fallaba
+ * al codificarse y desconectaba al jugador.
  */
 public record RecyclerGroupPreferencePayload(Item target, String groupKey, Item chosenItem) implements CustomPacketPayload {
 
@@ -28,7 +33,7 @@ public record RecyclerGroupPreferencePayload(Item target, String groupKey, Item 
     public static final StreamCodec<RegistryFriendlyByteBuf, RecyclerGroupPreferencePayload> STREAM_CODEC =
             StreamCodec.composite(
                     ByteBufCodecs.registry(Registries.ITEM), RecyclerGroupPreferencePayload::target,
-                    ByteBufCodecs.stringUtf8(1024), RecyclerGroupPreferencePayload::groupKey,
+                    ByteBufCodecs.stringUtf8(32767), RecyclerGroupPreferencePayload::groupKey,
                     ByteBufCodecs.registry(Registries.ITEM), RecyclerGroupPreferencePayload::chosenItem,
                     RecyclerGroupPreferencePayload::new
             );
