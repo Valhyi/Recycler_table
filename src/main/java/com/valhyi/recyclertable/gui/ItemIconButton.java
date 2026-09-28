@@ -15,6 +15,10 @@ import java.util.function.Consumer;
  * tocar el icono aplica esa preferencia de inmediato (sin boton "Cambiar").
  * Ya no pinta un fondo gris/negro por defecto: solo el slot con la
  * preferencia actual se marca (verde).
+ *
+ * ES: getDisplayStack() expone el stack actualmente dibujado para que
+ * RecyclerScreen pueda mostrar su nombre como tooltip al hacer hover,
+ * sin duplicar el estado en la pantalla.
  */
 public class ItemIconButton extends AbstractButton {
     private ItemStack displayStack = ItemStack.EMPTY;
@@ -29,6 +33,10 @@ public class ItemIconButton extends AbstractButton {
     public void setContent(ItemStack displayStack, boolean highlighted) {
         this.displayStack = displayStack;
         this.highlighted = highlighted;
+    }
+
+    public ItemStack getDisplayStack() {
+        return displayStack;
     }
 
     @Override
