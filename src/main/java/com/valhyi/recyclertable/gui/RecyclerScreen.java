@@ -54,6 +54,12 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private static final int VARIANT_ROWS = 7;
     private static final int MAX_VARIANT_SLOTS = VARIANT_COLS * VARIANT_ROWS;
 
+    // ES: Ancho, dentro de una fila de conflicto (LIST_COLUMN_WIDTH = 36px),
+    // que ocupa el icono del item objetivo (dibujado en x+1). A partir de
+    // este offset el mouse ya esta sobre el icono de preferencia (x+19).
+    // Usado solo para decidir que tooltip mostrar en renderTagPanelTooltips.
+    private static final int ROW_TARGET_ICON_WIDTH = 18;
+
     private static final WidgetSprites PLAY_SPRITES = new WidgetSprites(
             RecyclerTable.resLoc("widget/play_button"),
             RecyclerTable.resLoc("widget/play_button_highlighted")
@@ -261,6 +267,51 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     }
 
     @Override
+    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        // ES: Aparte y al final, para quedar dibujado ENCIMA de todos los
+        // widgets del panel de tags (filas de conflicto + grid de variantes).
+        renderTagPanelTooltips(guiGraphics, mouseX, mouseY);
+    }
+
+    /**
+     * ES: Nombre del item al hacer hover sobre un icono del panel de tags.
+     * Cubre las dos zonas con icono: una fila de la columna de conflictos
+     * (icono del target a la izquierda, icono de la preferencia actual a la
+     * derecha - se elige cuál mostrar según en qué mitad de la fila está el
+     * mouse) y cualquier icono del grid de variantes de la derecha.
+     */
+    private void renderTagPanelTooltips(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
+        if (!showingTagsPanel) return;
+
+        for (ConflictRowButton rowButton : rowButtons) {
+            if (rowButton == null || !rowButton.visible) continue;
+            if (!rowButton.isMouseOver(mouseX, mouseY)) continue;
+
+            int localX = mouseX - rowButton.getX();
+            ItemStack hovered = localX < ROW_TARGET_ICON_WIDTH
+                    ? rowButton.getTargetIcon()
+                    : rowButton.getPreferenceIcon();
+
+            if (hovered != null && !hovered.isEmpty()) {
+                guiGraphics.renderTooltip(this.font, hovered, mouseX, mouseY);
+            }
+            return;
+        }
+
+        for (ItemIconButton variantButton : variantButtons) {
+            if (variantButton == null || !variantButton.visible) continue;
+            if (!variantButton.isMouseOver(mouseX, mouseY)) continue;
+
+            ItemStack hovered = variantButton.getDisplayStack();
+            if (hovered != null && !hovered.isEmpty()) {
+                guiGraphics.renderTooltip(this.font, hovered, mouseX, mouseY);
+            }
+            return;
+        }
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (showingTagsPanel && !conflictRows.isEmpty() && scrollY != 0) {
             int direction = scrollY < 0 ? 1 : -1;
@@ -350,8 +401,18 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         }
     }
 
+    /**
+     * ES: FIX - antes solo se comprobaba "selectedTarget == null" para
+     * decidir si ocultar el grid de variantes. Como init() ya deja un
+     * selectedTarget por defecto (la primera fila de conflictos) ANTES de
+     * que el jugador abra el panel, los iconos de variantes quedaban
+     * visibles "flotando" a la derecha del GUI principal desde el
+     * instante en que se abre la mesa de reciclaje, sin haber tocado el
+     * botón de configuración. Ahora también se exige showingTagsPanel,
+     * igual que ya hacía updateRowButtons() para la columna de conflictos.
+     */
     private void updateVariantButtons() {
-        if (selectedTarget == null) {
+        if (!showingTagsPanel || selectedTarget == null) {
             currentSegments = List.of();
             for (ItemIconButton button : variantButtons) {
                 if (button != null) button.visible = false;
