@@ -15,6 +15,11 @@ import java.util.function.Consumer;
  * clickeable y selecciona ese item para mostrar sus variantes abajo.
  * Sin fondo gris/negro por defecto: solo la fila seleccionada se marca
  * (verde), igual criterio que ItemIconButton.
+ *
+ * ES: getTargetIcon()/getPreferenceIcon() exponen los dos stacks dibujados
+ * para que RecyclerScreen pueda mostrar el nombre correcto como tooltip
+ * segun sobre cual de los dos iconos este el mouse (ver
+ * RecyclerScreen.renderTagPanelTooltips).
  */
 public class ConflictRowButton extends AbstractButton {
     private ItemStack targetIcon = ItemStack.EMPTY;
@@ -31,6 +36,14 @@ public class ConflictRowButton extends AbstractButton {
         this.targetIcon = targetIcon;
         this.preferenceIcon = preferenceIcon;
         this.selected = selected;
+    }
+
+    public ItemStack getTargetIcon() {
+        return targetIcon;
+    }
+
+    public ItemStack getPreferenceIcon() {
+        return preferenceIcon;
     }
 
     @Override
