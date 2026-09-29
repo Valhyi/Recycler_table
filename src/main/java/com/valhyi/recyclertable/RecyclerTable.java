@@ -26,7 +26,7 @@ public class RecyclerTable {
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
+        if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS) {
             event.accept(ModBlocks.RECYCLER_TABLE_ITEM);
         }
     }
