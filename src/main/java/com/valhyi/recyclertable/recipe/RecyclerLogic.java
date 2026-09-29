@@ -4,7 +4,9 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.HoneycombItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -25,6 +27,7 @@ import net.minecraft.world.item.crafting.StonecutterRecipe;
 import net.minecraft.world.item.crafting.TransmuteRecipe;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import com.mojang.logging.LogUtils;
 import org.slf4j.Logger;
 
@@ -68,6 +71,59 @@ public class RecyclerLogic {
     }
 
     /**
+     * ES: Contraparte SIN encerar de un item "encerado" (ej.
+     * waxed_copper_grate -> copper_grate), usando la misma API vanilla que
+     * usa el juego para el clic derecho con panal de cera sobre cobre
+     * (HoneycombItem.getUnwaxed). Se prefiere esto a comparar por nombre
+     * (prefijo "waxed_") porque cubre automáticamente TODAS las variantes
+     * de cobre (bloque, expuesto, curtido, oxidado, puertas, trampillas,
+     * rejillas, talladas, cortadas, escaleras, losas, etc.) sin tener que
+     * enumerarlas a mano, y sigue funcionando si el datapack agrega más.
+     */
+    public static Optional<Item> getUnwaxedCounterpart(Item item) {
+        if (!(item instanceof BlockItem blockItem)) {
+            return Optional.empty();
+        }
+        return HoneycombItem.getUnwaxed(blockItem.getBlock()).map(Block::asItem);
+    }
+
+    /**
+     * ES: true si este item es la versión ENCERADA de algo (tiene
+     * contraparte sin encerar). Usado por MultiRecipeScanner para excluir
+     * estos items del panel de conflictos: la receta a usar no es una
+     * elección real del jugador, SIEMPRE es panal + contraparte sin encerar
+     * (ver findWaxedMatch), nunca cualquier otra receta de crafteo que
+     * también produzca el mismo bloque.
+     */
+    public static boolean isWaxedItem(Item item) {
+        return getUnwaxedCounterpart(item).isPresent();
+    }
+
+    /**
+     * ES: Receta SINTÉTICA y forzada para items encerados: 1 panal de miel +
+     * 1 unidad de la contraparte sin encerar. Se arma directo, sin buscar en
+     * el RecipeManager, porque en esta versión algunos bloques de cobre
+     * tienen UNA SEGUNDA receta de crafting que compite (bloques de cobre en
+     * crudo -> directamente la versión encerada - ver captura del usuario).
+     * findInCrafting no puede distinguir cuál es "la correcta": elige la
+     * primera que encuentra según el orden del RecipeManager, que no está
+     * garantizado, y a veces terminaba devolviendo bloques de cobre en vez
+     * de panal + item sin encerar. Esto se resuelve devolviendo esta receta
+     * directo, con máxima prioridad (ver findByPriority), sin ambigüedad.
+     */
+    private static RecipeMatch findWaxedMatch(ItemStack target) {
+        Optional<Item> unwaxed = getUnwaxedCounterpart(target.getItem());
+        if (unwaxed.isEmpty()) {
+            return null;
+        }
+
+        List<ItemStack> ingredients = new ArrayList<>();
+        ingredients.add(new ItemStack(Items.HONEYCOMB));
+        ingredients.add(new ItemStack(unwaxed.get()));
+        return new RecipeMatch(ingredients, 1);
+    }
+
+    /**
      * ES: Punto de entrada principal. Busca la receta que produjo este item probando,
      * en orden de prioridad: Stonecutter -> Hornos -> Crafting (shaped/shapeless/transmute)
      * -> Herrería. Devuelve null si no hay receta, si está en la blacklist, o si el item
@@ -94,6 +150,16 @@ public class RecyclerLogic {
     }
 
     private static RecipeMatch findByPriority(ItemStack target, RecipeManager recipeManager, Level level) {
+        // ES: Items encerados (waxed_*) SIEMPRE se reciclan con panal +
+        // contraparte sin encerar, sin importar qué otras recetas de
+        // crafteo existan para el mismo bloque (ver findWaxedMatch). Máxima
+        // prioridad: se resuelve antes que cualquier otro caso, incluidos
+        // los grupos independientes.
+        RecipeMatch waxedMatch = findWaxedMatch(target);
+        if (waxedMatch != null) {
+            return waxedMatch;
+        }
+
         // ES: Caso especial - items cuya (única) receta de crafting tiene 2+
         // grupos de tag SIN material en común (ej. fogata: logs + coals; ver
         // MultiRecipeScanner.hasUnlinkedGroups). Para estos, el jugador puede
@@ -272,6 +338,11 @@ public class RecyclerLogic {
     // con varios items posibles (ej. "planks"), se agrega una coincidencia extra por cada
     // item del tag (ver TagIngredientScanner.expandGroupedVariants) para que la preferencia
     // elegida en el panel tenga con qué coincidir durante el reciclado real.
+    //
+    // ES: Items encerados (waxed_*) ya NO llegan hasta acá - se resuelven antes, en
+    // findByPriority, vía findWaxedMatch. Esto evita justamente la ambigüedad que
+    // tenían (2 recetas de crafting válidas para el mismo bloque: panal, y bloques de
+    // cobre en crudo) sin depender de qué reciba primero el RecipeManager.
     @SuppressWarnings("unchecked")
     private static RecipeMatch findInCrafting(ItemStack target, RecipeManager recipeManager, Level level) {
         RecipeMatch fallbackDyedMatch = null;
