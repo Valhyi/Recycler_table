@@ -72,19 +72,23 @@ public class RecyclerLogic {
 
     /**
      * ES: Contraparte SIN encerar de un item "encerado" (ej.
-     * waxed_copper_grate -> copper_grate), usando la misma API vanilla que
+     * waxed_copper_grate -> copper_grate), usando el mismo mapa vanilla que
      * usa el juego para el clic derecho con panal de cera sobre cobre
-     * (HoneycombItem.getUnwaxed). Se prefiere esto a comparar por nombre
-     * (prefijo "waxed_") porque cubre automáticamente TODAS las variantes
-     * de cobre (bloque, expuesto, curtido, oxidado, puertas, trampillas,
-     * rejillas, talladas, cortadas, escaleras, losas, etc.) sin tener que
-     * enumerarlas a mano, y sigue funcionando si el datapack agrega más.
+     * (HoneycombItem.WAX_OFF_BY_BLOCK - Supplier<BiMap<Block, Block>>,
+     * encerado -> sin encerar; no existe un método getUnwaxed(Block), solo
+     * el campo). Se prefiere esto a comparar por nombre (prefijo "waxed_")
+     * porque cubre automáticamente TODAS las variantes de cobre (bloque,
+     * expuesto, curtido, oxidado, puertas, trampillas, rejillas, talladas,
+     * cortadas, escaleras, losas, etc.) sin tener que enumerarlas a mano, y
+     * sigue funcionando si el datapack agrega más.
      */
     public static Optional<Item> getUnwaxedCounterpart(Item item) {
         if (!(item instanceof BlockItem blockItem)) {
             return Optional.empty();
         }
-        return HoneycombItem.getUnwaxed(blockItem.getBlock()).map(Block::asItem);
+        Block waxedBlock = blockItem.getBlock();
+        Block unwaxedBlock = HoneycombItem.WAX_OFF_BY_BLOCK.get().get(waxedBlock);
+        return Optional.ofNullable(unwaxedBlock).map(Block::asItem);
     }
 
     /**
