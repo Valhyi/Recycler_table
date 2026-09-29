@@ -2,6 +2,7 @@ package com.valhyi.recyclertable.gui;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.network.chat.Component;
@@ -17,9 +18,11 @@ import java.util.function.Consumer;
  * (verde), igual criterio que ItemIconButton.
  *
  * ES: getTargetIcon()/getPreferenceIcon() exponen los dos stacks dibujados
- * para que RecyclerScreen pueda mostrar el nombre correcto como tooltip
- * segun sobre cual de los dos iconos este el mouse (ver
- * RecyclerScreen.renderTagPanelTooltips).
+ * por si algo mas los necesita. El nombre en hover se resuelve con
+ * AbstractWidget.setTooltip(Tooltip) en setContent() (ver ItemIconButton):
+ * como la fila tiene 2 iconos y el tooltip base es por-widget (no por
+ * pixel), se muestra el nombre del objetivo y, si la preferencia elegida
+ * es un item distinto, tambien el nombre de esa preferencia.
  */
 public class ConflictRowButton extends AbstractButton {
     private ItemStack targetIcon = ItemStack.EMPTY;
@@ -36,6 +39,16 @@ public class ConflictRowButton extends AbstractButton {
         this.targetIcon = targetIcon;
         this.preferenceIcon = preferenceIcon;
         this.selected = selected;
+
+        if (targetIcon.isEmpty()) {
+            this.setTooltip(null);
+        } else if (!preferenceIcon.isEmpty() && preferenceIcon.getItem() != targetIcon.getItem()) {
+            Component combined = Component.literal(
+                    targetIcon.getHoverName().getString() + " -> " + preferenceIcon.getHoverName().getString());
+            this.setTooltip(Tooltip.create(combined));
+        } else {
+            this.setTooltip(Tooltip.create(targetIcon.getHoverName()));
+        }
     }
 
     public ItemStack getTargetIcon() {
