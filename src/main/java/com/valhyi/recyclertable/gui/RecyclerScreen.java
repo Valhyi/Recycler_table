@@ -54,12 +54,6 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private static final int VARIANT_ROWS = 7;
     private static final int MAX_VARIANT_SLOTS = VARIANT_COLS * VARIANT_ROWS;
 
-    // ES: Ancho, dentro de una fila de conflicto (LIST_COLUMN_WIDTH = 36px),
-    // que ocupa el icono del item objetivo (dibujado en x+1). A partir de
-    // este offset el mouse ya esta sobre el icono de preferencia (x+19).
-    // Usado solo para decidir que tooltip mostrar en renderTagPanelTooltips.
-    private static final int ROW_TARGET_ICON_WIDTH = 18;
-
     private static final WidgetSprites PLAY_SPRITES = new WidgetSprites(
             RecyclerTable.resLoc("widget/play_button"),
             RecyclerTable.resLoc("widget/play_button_highlighted")
@@ -264,51 +258,6 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     public void containerTick() {
         super.containerTick();
         updateButtonStates();
-    }
-
-    @Override
-    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
-        // ES: Aparte y al final, para quedar dibujado ENCIMA de todos los
-        // widgets del panel de tags (filas de conflicto + grid de variantes).
-        renderTagPanelTooltips(guiGraphics, mouseX, mouseY);
-    }
-
-    /**
-     * ES: Nombre del item al hacer hover sobre un icono del panel de tags.
-     * Cubre las dos zonas con icono: una fila de la columna de conflictos
-     * (icono del target a la izquierda, icono de la preferencia actual a la
-     * derecha - se elige cuál mostrar según en qué mitad de la fila está el
-     * mouse) y cualquier icono del grid de variantes de la derecha.
-     */
-    private void renderTagPanelTooltips(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
-        if (!showingTagsPanel) return;
-
-        for (ConflictRowButton rowButton : rowButtons) {
-            if (rowButton == null || !rowButton.visible) continue;
-            if (!rowButton.isMouseOver(mouseX, mouseY)) continue;
-
-            int localX = mouseX - rowButton.getX();
-            ItemStack hovered = localX < ROW_TARGET_ICON_WIDTH
-                    ? rowButton.getTargetIcon()
-                    : rowButton.getPreferenceIcon();
-
-            if (hovered != null && !hovered.isEmpty()) {
-                guiGraphics.renderTooltip(this.font, hovered, mouseX, mouseY);
-            }
-            return;
-        }
-
-        for (ItemIconButton variantButton : variantButtons) {
-            if (variantButton == null || !variantButton.visible) continue;
-            if (!variantButton.isMouseOver(mouseX, mouseY)) continue;
-
-            ItemStack hovered = variantButton.getDisplayStack();
-            if (hovered != null && !hovered.isEmpty()) {
-                guiGraphics.renderTooltip(this.font, hovered, mouseX, mouseY);
-            }
-            return;
-        }
     }
 
     @Override
