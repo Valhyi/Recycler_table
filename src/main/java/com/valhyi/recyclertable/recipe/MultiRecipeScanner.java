@@ -169,14 +169,21 @@ public class MultiRecipeScanner {
         }
 
         // ES: Solo interesan los items con 2+ recetas distintas (conflicto real),
-        // y que no estén ya en la blacklist (esos nunca se reciclan, no tiene
-        // sentido mostrarlos en el panel de configuración).
+        // que no estén ya en la blacklist (esos nunca se reciclan, no tiene
+        // sentido mostrarlos en el panel de configuración), y que NO sean
+        // items encerados (waxed_*): esos SIEMPRE se reciclan con panal +
+        // contraparte sin encerar (ver RecyclerLogic.findWaxedMatch), sin
+        // importar cuántas recetas de crafting compitan para el mismo
+        // bloque - no es una elección real del jugador, no corresponde
+        // mostrarlos como conflicto configurable.
         found.entrySet().removeIf(entry -> entry.getValue().size() < 2
-                || new ItemStack(entry.getKey()).is(RecyclerLogic.BLACKLISTED_FROM_RECYCLING));
+                || new ItemStack(entry.getKey()).is(RecyclerLogic.BLACKLISTED_FROM_RECYCLING)
+                || RecyclerLogic.isWaxedItem(entry.getKey()));
 
         // ES: Un target solo puede tener grupos independientes si sigue
         // siendo un conflicto real tras el filtro de arriba (ej. si quedó
-        // fuera por blacklist, tampoco tiene sentido mostrar sus grupos).
+        // fuera por blacklist o por ser encerado, tampoco tiene sentido
+        // mostrar sus grupos).
         unlinkedGroups.keySet().retainAll(found.keySet());
 
         Map<Item, Integer> displayIndex = new HashMap<>();
