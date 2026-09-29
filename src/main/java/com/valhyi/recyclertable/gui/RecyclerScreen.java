@@ -31,7 +31,7 @@ import java.util.Optional;
 public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     private static final Identifier TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui.png");
-    private static final Identifier TAG_TEXTURE = RecyclerTable.resLoc("textures/gui/tag_gui.png");
+    private static final Identifier TAG_TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui_tag.png");
 
     private static final int TAG_PANEL_GAP = 4;
     private static final int TAG_PANEL_WIDTH = 120;
