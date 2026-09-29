@@ -2,6 +2,7 @@ package com.valhyi.recyclertable.gui;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.network.chat.Component;
@@ -16,9 +17,12 @@ import java.util.function.Consumer;
  * Ya no pinta un fondo gris/negro por defecto: solo el slot con la
  * preferencia actual se marca (verde).
  *
- * ES: getDisplayStack() expone el stack actualmente dibujado para que
- * RecyclerScreen pueda mostrar su nombre como tooltip al hacer hover,
- * sin duplicar el estado en la pantalla.
+ * ES: getDisplayStack() expone el stack actualmente dibujado (por si algo
+ * mas lo necesita). El nombre en hover se resuelve con
+ * AbstractWidget.setTooltip(Tooltip) en setContent(): es el mecanismo base
+ * de Minecraft para tooltips de widgets, el propio Screen lo dibuja solo
+ * al detectar el hover, sin depender de metodos renombrados/inciertos de
+ * GuiGraphicsExtractor.
  */
 public class ItemIconButton extends AbstractButton {
     private ItemStack displayStack = ItemStack.EMPTY;
@@ -33,6 +37,7 @@ public class ItemIconButton extends AbstractButton {
     public void setContent(ItemStack displayStack, boolean highlighted) {
         this.displayStack = displayStack;
         this.highlighted = highlighted;
+        this.setTooltip(displayStack.isEmpty() ? null : Tooltip.create(displayStack.getHoverName()));
     }
 
     public ItemStack getDisplayStack() {
