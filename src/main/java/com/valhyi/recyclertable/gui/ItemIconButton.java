@@ -10,38 +10,32 @@ import net.minecraft.world.item.ItemStack;
 import java.util.function.Consumer;
 
 /**
- * ES: Fila de la lista de conflictos. Dibuja el icono del item objetivo y,
- * al lado, el icono de la preferencia actualmente elegida. Toda la fila es
- * clickeable y selecciona ese item para mostrar sus variantes abajo.
- * Solo la fila seleccionada se marca (verde).
+ * ES: Boton cuadrado que dibuja un ItemStack en vez de texto. Usado para
+ * cada variante disponible en el grid de seleccion del panel de tags:
+ * tocar el icono aplica esa preferencia de inmediato (sin boton "Cambiar").
+ * Solo el slot con la preferencia actual se marca (verde).
  *
  * ES: Ya NO define su propio tooltip. RecyclerScreen dibuja el tooltip
- * vanilla del icono bajo el cursor usando getTargetIcon() (izquierda) o
- * getPreferenceIcon() (derecha, x+19).
+ * vanilla del ItemStack (rareza, encantamientos, F3+H) usando
+ * getDisplayStack().
  */
-public class ConflictRowButton extends AbstractButton {
-    private ItemStack targetIcon = ItemStack.EMPTY;
-    private ItemStack preferenceIcon = ItemStack.EMPTY;
-    private boolean selected = false;
-    private final Consumer<ConflictRowButton> onPress;
+public class ItemIconButton extends AbstractButton {
+    private ItemStack displayStack = ItemStack.EMPTY;
+    private boolean highlighted = false;
+    private final Consumer<ItemIconButton> onPress;
 
-    public ConflictRowButton(int x, int y, int width, int height, Consumer<ConflictRowButton> onPress) {
-        super(x, y, width, height, Component.empty());
+    public ItemIconButton(int x, int y, int size, Consumer<ItemIconButton> onPress) {
+        super(x, y, size, size, Component.empty());
         this.onPress = onPress;
     }
 
-    public void setContent(ItemStack targetIcon, ItemStack preferenceIcon, boolean selected) {
-        this.targetIcon = targetIcon;
-        this.preferenceIcon = preferenceIcon;
-        this.selected = selected;
+    public void setContent(ItemStack displayStack, boolean highlighted) {
+        this.displayStack = displayStack;
+        this.highlighted = highlighted;
     }
 
-    public ItemStack getTargetIcon() {
-        return targetIcon;
-    }
-
-    public ItemStack getPreferenceIcon() {
-        return preferenceIcon;
+    public ItemStack getDisplayStack() {
+        return displayStack;
     }
 
     @Override
@@ -58,15 +52,12 @@ public class ConflictRowButton extends AbstractButton {
         int w = this.getWidth();
         int h = this.getHeight();
 
-        if (selected) {
-            guiGraphics.fill(x, y, x + w, y + h, 0xFF3C6E27);
+        if (highlighted) {
+            guiGraphics.fill(x, y, x + w, y + h, 0xFF3C8527);
         }
 
-        if (!targetIcon.isEmpty()) {
-            guiGraphics.item(targetIcon, x + 1, y + 1);
-        }
-        if (!preferenceIcon.isEmpty()) {
-            guiGraphics.item(preferenceIcon, x + 19, y + 1);
+        if (!displayStack.isEmpty()) {
+            guiGraphics.item(displayStack, x + Math.max(0, (w - 16) / 2), y + Math.max(0, (h - 16) / 2));
         }
     }
 
