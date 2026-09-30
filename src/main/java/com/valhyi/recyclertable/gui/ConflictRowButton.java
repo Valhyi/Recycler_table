@@ -2,7 +2,6 @@ package com.valhyi.recyclertable.gui;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.network.chat.Component;
@@ -14,15 +13,11 @@ import java.util.function.Consumer;
  * ES: Fila de la lista de conflictos. Dibuja el icono del item objetivo y,
  * al lado, el icono de la preferencia actualmente elegida. Toda la fila es
  * clickeable y selecciona ese item para mostrar sus variantes abajo.
- * Sin fondo gris/negro por defecto: solo la fila seleccionada se marca
- * (verde), igual criterio que ItemIconButton.
+ * Solo la fila seleccionada se marca (verde).
  *
- * ES: getTargetIcon()/getPreferenceIcon() exponen los dos stacks dibujados
- * por si algo mas los necesita. El nombre en hover se resuelve con
- * AbstractWidget.setTooltip(Tooltip) en setContent() (ver ItemIconButton):
- * como la fila tiene 2 iconos y el tooltip base es por-widget (no por
- * pixel), se muestra el nombre del objetivo y, si la preferencia elegida
- * es un item distinto, tambien el nombre de esa preferencia.
+ * ES: Ya NO define su propio tooltip. RecyclerScreen dibuja el tooltip
+ * vanilla del icono bajo el cursor usando getTargetIcon() (izquierda) o
+ * getPreferenceIcon() (derecha, x+19).
  */
 public class ConflictRowButton extends AbstractButton {
     private ItemStack targetIcon = ItemStack.EMPTY;
@@ -39,16 +34,6 @@ public class ConflictRowButton extends AbstractButton {
         this.targetIcon = targetIcon;
         this.preferenceIcon = preferenceIcon;
         this.selected = selected;
-
-        if (targetIcon.isEmpty()) {
-            this.setTooltip(null);
-        } else if (!preferenceIcon.isEmpty() && preferenceIcon.getItem() != targetIcon.getItem()) {
-            Component combined = Component.literal(
-                    targetIcon.getHoverName().getString() + " -> " + preferenceIcon.getHoverName().getString());
-            this.setTooltip(Tooltip.create(combined));
-        } else {
-            this.setTooltip(Tooltip.create(targetIcon.getHoverName()));
-        }
     }
 
     public ItemStack getTargetIcon() {
