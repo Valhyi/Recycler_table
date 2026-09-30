@@ -21,19 +21,45 @@ public class RecyclerMenu extends AbstractContainerMenu {
     private final ContainerData data;
     private final BlockPos blockPos;
 
-    // Constantes de slots
-    private static final int CONTAINER_SIZE = 21;
-    private static final int INPUT_SLOTS_START = 0;   // 0-8
-    private static final int INPUT_SLOTS_END = 9;
-    private static final int PROCESSING_SLOT = 9;
-    private static final int BOTTLE_SLOT = 10;
-    private static final int BOOK_SLOT = 11;
-    private static final int OUTPUT_SLOTS_START = 12;  // 12-20
-    private static final int OUTPUT_SLOTS_END = 21;
-    private static final int PLAYER_INV_START = 21;
-    private static final int PLAYER_INV_END = 48;
-    private static final int PLAYER_HOTBAR_START = 48;
-    private static final int PLAYER_HOTBAR_END = 57;
+    // ================= INDICES DE SLOTS (fuente unica de verdad) =================
+    // ES: RecyclerBlockEntity y RecyclerScreen usan estas constantes. Para
+    // cambiar el tamano de los grids solo hay que tocar GRID_COLS / GRID_ROWS.
+    public static final int GRID_COLS = 6;
+    public static final int GRID_ROWS = 3;
+    public static final int GRID_SIZE = GRID_COLS * GRID_ROWS; // 18
+
+    public static final int INPUT_SLOTS_START = 0;                       // 0-17
+    public static final int INPUT_SLOTS_END = GRID_SIZE;                 // exclusivo
+    public static final int PROCESSING_SLOT = GRID_SIZE;                 // 18
+    public static final int BOTTLE_SLOT = GRID_SIZE + 1;                 // 19
+    public static final int BOOK_SLOT = GRID_SIZE + 2;                   // 20
+    public static final int OUTPUT_SLOTS_START = GRID_SIZE + 3;          // 21-38
+    public static final int OUTPUT_SLOTS_END = OUTPUT_SLOTS_START + GRID_SIZE; // exclusivo
+    public static final int CONTAINER_SIZE = OUTPUT_SLOTS_END;           // 39
+
+    private static final int PLAYER_INV_START = CONTAINER_SIZE;
+    private static final int PLAYER_INV_END = PLAYER_INV_START + 27;
+    private static final int PLAYER_HOTBAR_START = PLAYER_INV_END;
+    private static final int PLAYER_HOTBAR_END = PLAYER_HOTBAR_START + 9;
+
+    // ================= LAYOUT (coordenadas relativas al GUI) =================
+    private static final int SLOT_SIZE = 18;
+    private static final int MARGIN = 8;
+    private static final int CENTER_ZONE_WIDTH = 36;
+    private static final int CENTER_GAP = 10;
+
+    public static final int INPUT_X = MARGIN;
+    public static final int GRID_Y = 17;
+    public static final int CENTER_X = INPUT_X + GRID_COLS * SLOT_SIZE + CENTER_GAP;
+    public static final int CENTER_MID = CENTER_X + CENTER_ZONE_WIDTH / 2;
+    public static final int OUTPUT_X = CENTER_X + CENTER_ZONE_WIDTH + CENTER_GAP;
+
+    public static final int IMAGE_WIDTH = OUTPUT_X + GRID_COLS * SLOT_SIZE + MARGIN;
+    public static final int IMAGE_HEIGHT = 166;
+
+    public static final int PLAYER_INV_X = (IMAGE_WIDTH - 9 * SLOT_SIZE) / 2;
+    private static final int PLAYER_INV_Y = 84;
+    private static final int HOTBAR_Y = 142;
 
     public RecyclerMenu(int containerId, Inventory playerInventory, RegistryFriendlyByteBuf extraData) {
         this(containerId, playerInventory, extraData.readBlockPos());
@@ -52,7 +78,7 @@ public class RecyclerMenu extends AbstractContainerMenu {
     }
 
     private static Container resolveContainer(BlockEntity blockEntity) {
-        return blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getContainer() : new SimpleContainer(21);
+        return blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getContainer() : new SimpleContainer(CONTAINER_SIZE);
     }
 
     private static ContainerData resolveData(BlockEntity blockEntity) {
@@ -68,38 +94,40 @@ public class RecyclerMenu extends AbstractContainerMenu {
         this.container = container;
         this.blockPos = pos;
         this.data = data;
-        checkContainerSize(container, 21);
+        checkContainerSize(container, CONTAINER_SIZE);
         container.startOpen(playerInventory.player);
 
-        // 1. Input Grid (3x3) - Izquierda -> Índices 0 al 8
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                this.addSlot(new Slot(container, j + i * 3, 8 + j * 18, 17 + i * 18));
+        // 1. Input Grid - Izquierda -> Indices 0 al 17
+        for (int i = 0; i < GRID_ROWS; i++) {
+            for (int j = 0; j < GRID_COLS; j++) {
+                this.addSlot(new Slot(container, INPUT_SLOTS_START + j + i * GRID_COLS,
+                        INPUT_X + j * SLOT_SIZE, GRID_Y + i * SLOT_SIZE));
             }
         }
 
-        // 2. Zona Central -> Índices 9, 10 y 11
-        this.addSlot(new RecyclerSlots.ProcessSlot(container, 9, 80, 17));
-        this.addSlot(new RecyclerSlots.RestrictedSlot(container, 10, 71, 35, new ItemStack(Items.GLASS_BOTTLE)));
-        this.addSlot(new RecyclerSlots.RestrictedSlot(container, 11, 89, 35, new ItemStack(Items.BOOK)));
+        // 2. Zona Central -> Proceso, botella, libro
+        this.addSlot(new RecyclerSlots.ProcessSlot(container, PROCESSING_SLOT, CENTER_MID - 8, 17));
+        this.addSlot(new RecyclerSlots.RestrictedSlot(container, BOTTLE_SLOT, CENTER_MID - 17, 35, new ItemStack(Items.GLASS_BOTTLE)));
+        this.addSlot(new RecyclerSlots.RestrictedSlot(container, BOOK_SLOT, CENTER_MID + 1, 35, new ItemStack(Items.BOOK)));
 
-        // 3. Output Grid (3x3) - Derecha -> Índices 12 al 20
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                this.addSlot(new RecyclerSlots.OutputSlot(container, 12 + j + i * 3, 116 + j * 18, 17 + i * 18));
+        // 3. Output Grid - Derecha -> Indices 21 al 38
+        for (int i = 0; i < GRID_ROWS; i++) {
+            for (int j = 0; j < GRID_COLS; j++) {
+                this.addSlot(new RecyclerSlots.OutputSlot(container, OUTPUT_SLOTS_START + j + i * GRID_COLS,
+                        OUTPUT_X + j * SLOT_SIZE, GRID_Y + i * SLOT_SIZE));
             }
         }
 
         // 4. Inventario del jugador
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 9; ++j) {
-                this.addSlot(new Slot(playerInventory, j + i * 9 + 9, 8 + j * 18, 84 + i * 18));
+                this.addSlot(new Slot(playerInventory, j + i * 9 + 9, PLAYER_INV_X + j * SLOT_SIZE, PLAYER_INV_Y + i * SLOT_SIZE));
             }
         }
 
         // 5. Hotbar del jugador
         for (int k = 0; k < 9; ++k) {
-            this.addSlot(new Slot(playerInventory, k, 8 + k * 18, 142));
+            this.addSlot(new Slot(playerInventory, k, PLAYER_INV_X + k * SLOT_SIZE, HOTBAR_Y));
         }
 
         this.addDataSlots(data);
@@ -114,7 +142,7 @@ public class RecyclerMenu extends AbstractContainerMenu {
     }
 
     public boolean isProcessing() {
-        return this.getSlot(9).hasItem();
+        return this.getSlot(PROCESSING_SLOT).hasItem();
     }
 
     @Override
