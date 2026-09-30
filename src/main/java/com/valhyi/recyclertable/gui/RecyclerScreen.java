@@ -33,6 +33,15 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private static final Identifier TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui.png");
     private static final Identifier TAG_TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui_tag.png");
 
+    // ES: Tamano del PNG recycler_gui.png. El GUI ahora mide IMAGE_WIDTH (288) de
+    // ancho, asi que la textura ya no cabe en 256: debe ser de 512x256.
+    // Si cambias el tamano del PNG, cambia estas dos constantes.
+    private static final int TEXTURE_WIDTH = 512;
+    private static final int TEXTURE_HEIGHT = 256;
+
+    // ES: Y del boton de configuracion (justo debajo de play/auto, que van en y=55).
+    private static final int CONFIG_BUTTON_Y = 69;
+
     private static final int TAG_PANEL_GAP = 4;
     private static final int TAG_PANEL_WIDTH = 120;
     private static final int TAG_PANEL_HEIGHT = 166;
@@ -145,7 +154,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private int detailLabelWidth;
 
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
-        super(menu, playerInventory, title, 176, 166);
+        super(menu, playerInventory, title, RecyclerMenu.IMAGE_WIDTH, RecyclerMenu.IMAGE_HEIGHT);
     }
 
     @Override
@@ -153,9 +162,13 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         super.init();
         this.titleLabelX = this.imageWidth / 2 - this.font.width(this.title) / 2;
 
-        int playX = this.leftPos + 65;
-        int autoX = this.leftPos + 97;
+        this.inventoryLabelX = RecyclerMenu.PLAYER_INV_X;
+
+        int playX = this.leftPos + RecyclerMenu.CENTER_MID - 23;
+        int autoX = this.leftPos + RecyclerMenu.CENTER_MID + 9;
         int buttonY = this.topPos + 55;
+        int configX = this.leftPos + RecyclerMenu.CENTER_MID - 7;
+        int configY = this.topPos + CONFIG_BUTTON_Y;
 
         this.playIdleButton = this.addRenderableWidget(new ImageButton(
                 playX, buttonY, 14, 14, PLAY_SPRITES,
@@ -182,7 +195,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         ));
 
         this.configButton = this.addRenderableWidget(new ImageButton(
-                this.leftPos + this.imageWidth - 20, this.topPos + 4, 14, 14, CONFIG_SPRITES,
+                configX, configY, 14, 14, CONFIG_SPRITES,
                 button -> this.showingTagsPanel = !this.showingTagsPanel,
                 Component.translatable("gui.recyclertable.config_button")
         ));
@@ -694,7 +707,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     @Override
     public void extractBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
         super.extractBackground(guiGraphics, mouseX, mouseY, partialTicks);
-        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F, this.imageWidth, this.imageHeight, 256, 256);
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F, this.imageWidth, this.imageHeight, TEXTURE_WIDTH, TEXTURE_HEIGHT);
 
         if (showingTagsPanel) {
             guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TAG_TEXTURE, panelX, panelY, 0.0F, 0.0F, TAG_PANEL_WIDTH, TAG_PANEL_HEIGHT, 256, 256);
