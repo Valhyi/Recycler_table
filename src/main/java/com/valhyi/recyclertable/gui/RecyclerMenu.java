@@ -24,8 +24,8 @@ public class RecyclerMenu extends AbstractContainerMenu {
     // ================= INDICES DE SLOTS (fuente unica de verdad) =================
     // ES: RecyclerBlockEntity y RecyclerScreen usan estas constantes. Para
     // cambiar el tamano de los grids solo hay que tocar GRID_COLS / GRID_ROWS.
-    public static final int GRID_COLS = 6;
-    public static final int GRID_ROWS = 3;
+    public static final int GRID_COLS = 3;
+    public static final int GRID_ROWS = 6;
     public static final int GRID_SIZE = GRID_COLS * GRID_ROWS; // 18
 
     public static final int INPUT_SLOTS_START = 0;                       // 0-17
@@ -55,11 +55,12 @@ public class RecyclerMenu extends AbstractContainerMenu {
     public static final int OUTPUT_X = CENTER_X + CENTER_ZONE_WIDTH + CENTER_GAP;
 
     public static final int IMAGE_WIDTH = OUTPUT_X + GRID_COLS * SLOT_SIZE + MARGIN;
-    public static final int IMAGE_HEIGHT = 166;
 
+    // ES: El inventario del jugador va debajo de los grids (mismo espaciado que un cofre vanilla).
     public static final int PLAYER_INV_X = (IMAGE_WIDTH - 9 * SLOT_SIZE) / 2;
-    private static final int PLAYER_INV_Y = 84;
-    private static final int HOTBAR_Y = 142;
+    private static final int PLAYER_INV_Y = GRID_Y + GRID_ROWS * SLOT_SIZE + 15;
+    private static final int HOTBAR_Y = PLAYER_INV_Y + 58;
+    public static final int IMAGE_HEIGHT = HOTBAR_Y + 24;
 
     public RecyclerMenu(int containerId, Inventory playerInventory, RegistryFriendlyByteBuf extraData) {
         this(containerId, playerInventory, extraData.readBlockPos());
