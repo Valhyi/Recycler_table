@@ -95,7 +95,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
      * "conflicto normal" (una sola firma completa de ingredientes, ej.
      * mossy_cobblestone - comportamiento de siempre, sin cambios). Un
      * groupKey no-nulo significa que esta fila representa UN grupo
-     * independiente de un item con 2+ grupos sin material en común (ej.
+     * independiente de un item con 2+ grupos sin material en comun (ej.
      * fogata: una fila para "logs", otra para "coals" - ver
      * MultiRecipeScanner.hasUnlinkedGroups).
      */
@@ -103,10 +103,10 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     /**
      * ES: Un tramo del grid de variantes asignado a UN grupo en particular
-     * cuando el target seleccionado tiene grupos sin material en común.
+     * cuando el target seleccionado tiene grupos sin material en comun.
      * startRow/allocatedRows son filas dentro del grid de VARIANT_ROWS
      * filas totales (ver allocateRows). items() es la lista completa de
-     * variantes de ese grupo (ya resueltas al item que realmente varía,
+     * variantes de ese grupo (ya resueltas al item que realmente varia,
      * ver updateVariantButtonsGrouped).
      */
     private record Segment(String groupKey, List<Item> items, int startRow, int allocatedRows) {}
@@ -114,26 +114,24 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private List<ConflictRow> conflictRows = new ArrayList<>();
     private int scrollOffset = 0;
 
-    // ES: Item actualmente "abierto" en el panel. A diferencia de antes, ya
-    // NO es un índice de fila: un mismo target puede tener varias filas
-    // (una por grupo) y todas se resaltan juntas al seleccionar cualquiera
-    // de ellas (ver updateRowButtons) - así se ve en el mockup del usuario,
-    // ambas filas de la fogata en verde a la vez.
+    // ES: Item actualmente "abierto" en el panel. Un mismo target puede tener
+    // varias filas (una por grupo) y todas se resaltan juntas al seleccionar
+    // cualquiera de ellas (ver updateRowButtons).
     private Item selectedTarget = null;
 
     // ES: Solo se usan en modo "conflicto normal" (selectedTarget sin
-    // grupos independientes) - comportamiento idéntico al de siempre.
+    // grupos independientes) - comportamiento identico al de siempre.
     private int selectedVariantIndex = 0;
     private int variantScrollOffset = 0;
 
     // ES: Solo se usan en modo "grupos independientes". Scroll (en filas)
-    // por grupo, para cuando un grupo tiene más variantes de las que caben
+    // por grupo, para cuando un grupo tiene mas variantes de las que caben
     // en las filas que le tocaron (ver allocateRows / scrollSegmentBy).
     private final Map<String, Integer> groupScrollOffsets = new HashMap<>();
 
-    // ES: Último layout de grupos calculado por updateVariantButtonsGrouped,
+    // ES: Ultimo layout de grupos calculado por updateVariantButtonsGrouped,
     // reutilizado por selectGroupVariant y el manejo de scroll para no
-    // recalcular la asignación de filas dos veces por click/scroll.
+    // recalcular la asignacion de filas dos veces por click/scroll.
     private List<Segment> currentSegments = List.of();
 
     private int panelX;
@@ -229,11 +227,9 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     /**
      * ES: Arma la columna de conflictos. Para un item normal (sin grupos
-     * independientes), una sola fila (comportamiento de siempre). Para un
-     * item con 2+ grupos sin material en común (ver
-     * MultiRecipeScanner.hasUnlinkedGroups), una fila POR GRUPO en vez de
-     * una sola fila mezclando todo (esa mezcla era justo el bug del ícono
-     * repetido / cuenta inflada que se veía antes con la fogata).
+     * independientes), una sola fila. Para un item con 2+ grupos sin
+     * material en comun (ver MultiRecipeScanner.hasUnlinkedGroups), una
+     * fila POR GRUPO.
      */
     private List<ConflictRow> buildConflictRows() {
         List<Item> allTargets = new ArrayList<>(MultiRecipeScanner.getMultiRecipeItems().keySet());
@@ -338,9 +334,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 ItemStack targetIcon = new ItemStack(row.target());
                 ItemStack prefIcon = getPreferredIconForRow(row);
                 // ES: Se resalta CUALQUIER fila que pertenezca al target
-                // actualmente abierto, no solo una - así ambas filas de la
-                // fogata (logs y coals) quedan en verde juntas, igual que
-                // en el mockup del usuario.
+                // actualmente abierto, no solo una.
                 boolean highlighted = row.target().equals(selectedTarget);
                 rowButton.setContent(targetIcon, prefIcon, highlighted);
                 rowButton.visible = true;
@@ -351,14 +345,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     }
 
     /**
-     * ES: FIX - antes solo se comprobaba "selectedTarget == null" para
-     * decidir si ocultar el grid de variantes. Como init() ya deja un
-     * selectedTarget por defecto (la primera fila de conflictos) ANTES de
-     * que el jugador abra el panel, los iconos de variantes quedaban
-     * visibles "flotando" a la derecha del GUI principal desde el
-     * instante en que se abre la mesa de reciclaje, sin haber tocado el
-     * botón de configuración. Ahora también se exige showingTagsPanel,
-     * igual que ya hacía updateRowButtons() para la columna de conflictos.
+     * ES: Oculta el grid de variantes si el panel de tags no esta abierto o
+     * no hay target seleccionado.
      */
     private void updateVariantButtons() {
         if (!showingTagsPanel || selectedTarget == null) {
@@ -378,8 +366,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
     /**
      * ES: Comportamiento de siempre para un conflicto normal (una sola
-     * lista plana de variantes, un solo scroll) - sin cambios de lógica,
-     * solo usa selectedTarget en vez de conflictItems.get(selectedIndex).
+     * lista plana de variantes, un solo scroll).
      */
     private void updateVariantButtonsFlat() {
         currentSegments = List.of();
@@ -406,7 +393,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     /**
      * ES: Modo "grupos independientes" (ej. fogata). Reparte las
      * VARIANT_ROWS filas del grid entre los grupos del target seleccionado
-     * proporcionalmente a cuántas filas necesita cada uno (ver
+     * proporcionalmente a cuantas filas necesita cada uno (ver
      * allocateRows), y dibuja cada grupo en su propio tramo de filas, con
      * scroll independiente si le tocaron menos filas de las que necesita.
      */
@@ -428,8 +415,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             MultiRecipeScanner.VariantGroup group = groups.get(i);
 
             // ES: Resolver cada variante del grupo al item que REALMENTE
-            // varía (la posición del grupo dentro de la firma completa),
-            // no la firma entera - eso es lo que va en el ícono.
+            // varia (la posicion del grupo dentro de la firma completa).
             int posIndex = group.positions().isEmpty() ? -1 : group.positions().get(0);
             List<Item> items = new ArrayList<>();
             for (MultiRecipeScanner.RecipeVariant variant : group.variants()) {
@@ -482,8 +468,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             }
         }
         // ES: sin preferencia guardada, el "elegido" es el primer item de la
-        // lista del grupo (el mismo item base que usa RecyclerLogic cuando
-        // no hay preferencia configurada).
+        // lista del grupo (el mismo item base que usa RecyclerLogic).
         return !segment.items().isEmpty() && segment.items().get(0) == candidate;
     }
 
@@ -497,13 +482,9 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     }
 
     /**
-     * ES: Reparte "totalRows" filas entre los grupos en proporción a cuántas
-     * filas necesita cada uno (neededRowsList), con un mínimo de 1 fila por
-     * grupo. Si la suma de filas necesitadas ya entra en totalRows, cada
-     * grupo recibe exactamente lo que necesita (sin split, filas de sobra
-     * simplemente no se usan). Si no entra, se reparte proporcionalmente y
-     * el redondeo se ajusta dándole/quitándole 1 fila primero a los grupos
-     * más grandes (donde se nota menos).
+     * ES: Reparte "totalRows" filas entre los grupos en proporcion a cuantas
+     * filas necesita cada uno (neededRowsList), con un minimo de 1 fila por
+     * grupo.
      */
     private static int[] allocateRows(List<Integer> neededRowsList, int totalRows) {
         int n = neededRowsList.size();
@@ -655,10 +636,10 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     }
 
     /**
-     * ES: Ícono de preferencia para una fila de la columna de conflictos.
+     * ES: Icono de preferencia para una fila de la columna de conflictos.
      * Para una fila normal (groupKey == null), comportamiento de siempre.
      * Para una fila de grupo, la preferencia guardada de ESE grupo en
-     * particular (o el ítem base del grupo si no hay ninguna).
+     * particular (o el item base del grupo si no hay ninguna).
      */
     private ItemStack getPreferredIconForRow(ConflictRow row) {
         if (row.groupKey() == null) {
@@ -718,5 +699,46 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         if (showingTagsPanel) {
             guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TAG_TEXTURE, panelX, panelY, 0.0F, 0.0F, TAG_PANEL_WIDTH, TAG_PANEL_HEIGHT, 256, 256);
         }
+    }
+
+    // ================= TOOLTIP VANILLA DEL PANEL DE TAGS =================
+
+    /**
+     * ES: Dibuja el tooltip vanilla (color de rareza, encantamientos, id con
+     * F3+H) del item bajo el cursor en el panel de tags. Se llama a super
+     * primero para que los widgets y los slots se dibujen antes y el tooltip
+     * quede por encima.
+     */
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(guiGraphics, mouseX, mouseY, partialTick);
+
+        if (showingTagsPanel) {
+            ItemStack hovered = getHoveredPanelStack(mouseX, mouseY);
+            if (!hovered.isEmpty()) {
+                guiGraphics.setTooltipForNextFrame(this.font, hovered, mouseX, mouseY);
+            }
+        }
+    }
+
+    /**
+     * ES: Devuelve el ItemStack del icono del panel bajo el cursor, o EMPTY.
+     * La fila de conflictos tiene 2 iconos: el item objetivo (izquierda) y
+     * la preferencia elegida (derecha, desde x+18).
+     */
+    private ItemStack getHoveredPanelStack(int mouseX, int mouseY) {
+        for (ItemIconButton button : variantButtons) {
+            if (button != null && button.visible && button.isMouseOver(mouseX, mouseY)) {
+                return button.getDisplayStack();
+            }
+        }
+        for (ConflictRowButton row : rowButtons) {
+            if (row != null && row.visible && row.isMouseOver(mouseX, mouseY)) {
+                boolean overPreference = mouseX >= row.getX() + 18;
+                ItemStack pref = row.getPreferenceIcon();
+                return (overPreference && !pref.isEmpty()) ? pref : row.getTargetIcon();
+            }
+        }
+        return ItemStack.EMPTY;
     }
 }
