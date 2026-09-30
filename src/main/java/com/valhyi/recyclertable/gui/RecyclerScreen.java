@@ -33,10 +33,9 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private static final Identifier TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui.png");
     private static final Identifier TAG_TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui_tag.png");
 
-    // ES: Tamano del PNG recycler_gui.png. El GUI ahora mide IMAGE_WIDTH (288) de
-    // ancho, asi que la textura ya no cabe en 256: debe ser de 512x256.
-    // Si cambias el tamano del PNG, cambia estas dos constantes.
-    private static final int TEXTURE_WIDTH = 512;
+    // ES: Tamano del PNG recycler_gui.png (ancho x alto). El GUI mide 180x222,
+    // cabe en 256x256. Si cambias el tamano del PNG, cambia estas dos constantes.
+    private static final int TEXTURE_WIDTH = 256;
     private static final int TEXTURE_HEIGHT = 256;
 
     // ES: Y del boton de configuracion (justo debajo de play/auto, que van en y=55).
