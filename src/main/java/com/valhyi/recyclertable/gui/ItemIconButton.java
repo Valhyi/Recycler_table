@@ -2,7 +2,6 @@ package com.valhyi.recyclertable.gui;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.network.chat.Component;
@@ -14,15 +13,11 @@ import java.util.function.Consumer;
  * ES: Boton cuadrado que dibuja un ItemStack en vez de texto. Usado para
  * cada variante disponible en el grid de seleccion del panel de tags:
  * tocar el icono aplica esa preferencia de inmediato (sin boton "Cambiar").
- * Ya no pinta un fondo gris/negro por defecto: solo el slot con la
- * preferencia actual se marca (verde).
+ * Solo el slot con la preferencia actual se marca (verde).
  *
- * ES: getDisplayStack() expone el stack actualmente dibujado (por si algo
- * mas lo necesita). El nombre en hover se resuelve con
- * AbstractWidget.setTooltip(Tooltip) en setContent(): es el mecanismo base
- * de Minecraft para tooltips de widgets, el propio Screen lo dibuja solo
- * al detectar el hover, sin depender de metodos renombrados/inciertos de
- * GuiGraphicsExtractor.
+ * ES: Ya NO define su propio tooltip. RecyclerScreen dibuja el tooltip
+ * vanilla del ItemStack (rareza, encantamientos, F3+H) usando
+ * getDisplayStack().
  */
 public class ItemIconButton extends AbstractButton {
     private ItemStack displayStack = ItemStack.EMPTY;
@@ -37,7 +32,6 @@ public class ItemIconButton extends AbstractButton {
     public void setContent(ItemStack displayStack, boolean highlighted) {
         this.displayStack = displayStack;
         this.highlighted = highlighted;
-        this.setTooltip(displayStack.isEmpty() ? null : Tooltip.create(displayStack.getHoverName()));
     }
 
     public ItemStack getDisplayStack() {
