@@ -33,13 +33,18 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private static final Identifier TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui.png");
     private static final Identifier TAG_TEXTURE = RecyclerTable.resLoc("textures/gui/recycler_gui_tag.png");
 
-    // ES: Tamano del PNG recycler_gui.png (ancho x alto). El GUI mide 180x222,
+    // ES: Tamano del PNG recycler_gui.png (ancho x alto). El GUI mide 176x220,
     // cabe en 256x256. Si cambias el tamano del PNG, cambia estas dos constantes.
     private static final int TEXTURE_WIDTH = 256;
     private static final int TEXTURE_HEIGHT = 256;
 
-    // ES: Y del boton de configuracion (justo debajo de play/auto, que van en y=55).
-    private static final int CONFIG_BUTTON_Y = 69;
+    // ES: Las posiciones de los botones (play / auto / config) y de los slots
+    // viven en RecyclerMenu (PLAY_BUTTON_X, AUTO_BUTTON_Y, CONFIG_BUTTON_X, etc.),
+    // en pixeles exactos de la textura. Ya no se calculan desde CENTER_MID.
+
+    // ES: Y del texto "Inventario": 12 px sobre la primera fila del inventario
+    // (igual que un cofre vanilla).
+    private static final int INVENTORY_LABEL_Y = RecyclerMenu.PLAYER_INV_Y - 12;
 
     private static final int TAG_PANEL_GAP = 4;
     private static final int TAG_PANEL_WIDTH = 120;
@@ -162,39 +167,44 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         this.titleLabelX = this.imageWidth / 2 - this.font.width(this.title) / 2;
 
         this.inventoryLabelX = RecyclerMenu.PLAYER_INV_X;
+        this.inventoryLabelY = INVENTORY_LABEL_Y;
 
-        int playX = this.leftPos + RecyclerMenu.CENTER_MID - 23;
-        int autoX = this.leftPos + RecyclerMenu.CENTER_MID + 9;
-        int buttonY = this.topPos + 55;
-        int configX = this.leftPos + RecyclerMenu.CENTER_MID - 7;
-        int configY = this.topPos + CONFIG_BUTTON_Y;
+        // ES: Posiciones EXACTAS de los botones, tomadas de RecyclerMenu
+        // (pixeles medidos sobre recycler_gui.png).
+        int size = RecyclerMenu.BUTTON_SIZE;
+        int playX = this.leftPos + RecyclerMenu.PLAY_BUTTON_X;
+        int playY = this.topPos + RecyclerMenu.PLAY_BUTTON_Y;
+        int autoX = this.leftPos + RecyclerMenu.AUTO_BUTTON_X;
+        int autoY = this.topPos + RecyclerMenu.AUTO_BUTTON_Y;
+        int configX = this.leftPos + RecyclerMenu.CONFIG_BUTTON_X;
+        int configY = this.topPos + RecyclerMenu.CONFIG_BUTTON_Y;
 
         this.playIdleButton = this.addRenderableWidget(new ImageButton(
-                playX, buttonY, 14, 14, PLAY_SPRITES,
+                playX, playY, size, size, PLAY_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.PLAY),
                 Component.translatable("gui.recyclertable.play_button")
         ));
 
         this.playActiveButton = this.addRenderableWidget(new ImageButton(
-                playX, buttonY, 14, 14, PLAY_ACTIVE_SPRITES,
+                playX, playY, size, size, PLAY_ACTIVE_SPRITES,
                 button -> {},
                 Component.translatable("gui.recyclertable.play_button")
         ));
 
         this.autoOffButton = this.addRenderableWidget(new ImageButton(
-                autoX, buttonY, 14, 14, AUTO_OFF_SPRITES,
+                autoX, autoY, size, size, AUTO_OFF_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.AUTO),
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
         this.autoOnButton = this.addRenderableWidget(new ImageButton(
-                autoX, buttonY, 14, 14, AUTO_ON_SPRITES,
+                autoX, autoY, size, size, AUTO_ON_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.AUTO),
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
         this.configButton = this.addRenderableWidget(new ImageButton(
-                configX, configY, 14, 14, CONFIG_SPRITES,
+                configX, configY, size, size, CONFIG_SPRITES,
                 button -> this.showingTagsPanel = !this.showingTagsPanel,
                 Component.translatable("gui.recyclertable.config_button")
         ));
