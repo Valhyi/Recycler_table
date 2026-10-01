@@ -42,25 +42,47 @@ public class RecyclerMenu extends AbstractContainerMenu {
     private static final int PLAYER_HOTBAR_START = PLAYER_INV_END;
     private static final int PLAYER_HOTBAR_END = PLAYER_HOTBAR_START + 9;
 
-    // ================= LAYOUT (coordenadas relativas al GUI) =================
+    // ================= LAYOUT (pixeles EXACTOS de recycler_gui.png) =================
+    // ES: Todas las coordenadas son absolutas, relativas a la esquina superior
+    // izquierda de la textura, y corresponden a la esquina del AREA DEL ITEM
+    // (16x16), es decir, 1 px dentro del borde visible del slot.
+    // Ya no se calculan a partir de margenes: para mover algo, cambia el numero.
     private static final int SLOT_SIZE = 18;
-    private static final int MARGIN = 8;
-    private static final int CENTER_ZONE_WIDTH = 36;
-    private static final int CENTER_GAP = 10;
 
-    public static final int INPUT_X = MARGIN;
+    // Tamano total del GUI (la textura mide 176 x 220)
+    public static final int IMAGE_WIDTH = 176;
+    public static final int IMAGE_HEIGHT = 220;
+
+    // Grid de entrada (izquierda): 3 columnas x 6 filas
+    public static final int INPUT_X = 8;
     public static final int GRID_Y = 17;
-    public static final int CENTER_X = INPUT_X + GRID_COLS * SLOT_SIZE + CENTER_GAP;
-    public static final int CENTER_MID = CENTER_X + CENTER_ZONE_WIDTH / 2;
-    public static final int OUTPUT_X = CENTER_X + CENTER_ZONE_WIDTH + CENTER_GAP;
 
-    public static final int IMAGE_WIDTH = OUTPUT_X + GRID_COLS * SLOT_SIZE + MARGIN;
+    // Grid de salida (derecha): 3 columnas x 6 filas
+    public static final int OUTPUT_X = 116;
 
-    // ES: El inventario del jugador va debajo de los grids (mismo espaciado que un cofre vanilla).
-    public static final int PLAYER_INV_X = (IMAGE_WIDTH - 9 * SLOT_SIZE) / 2;
-    private static final int PLAYER_INV_Y = GRID_Y + GRID_ROWS * SLOT_SIZE + 15;
-    private static final int HOTBAR_Y = PLAYER_INV_Y + 58;
-    public static final int IMAGE_HEIGHT = HOTBAR_Y + 24;
+    // Slot de proceso (arriba al centro)
+    public static final int PROCESS_X = 80;
+    public static final int PROCESS_Y = 17;
+
+    // Botella (izquierda) y libro (derecha), debajo del slot de proceso
+    public static final int BOTTLE_X = 68;
+    public static final int BOTTLE_Y = 48;
+    public static final int BOOK_X = 92;
+    public static final int BOOK_Y = 48;
+
+    // Botones (14x14 px)
+    public static final int BUTTON_SIZE = 14;
+    public static final int PLAY_BUTTON_X = 70;
+    public static final int PLAY_BUTTON_Y = 80;
+    public static final int AUTO_BUTTON_X = 92;
+    public static final int AUTO_BUTTON_Y = 80;
+    public static final int CONFIG_BUTTON_X = 81;
+    public static final int CONFIG_BUTTON_Y = 100;
+
+    // Inventario del jugador (3 filas) y hotbar
+    public static final int PLAYER_INV_X = 8;
+    public static final int PLAYER_INV_Y = 138;
+    public static final int HOTBAR_Y = 196;
 
     public RecyclerMenu(int containerId, Inventory playerInventory, RegistryFriendlyByteBuf extraData) {
         this(containerId, playerInventory, extraData.readBlockPos());
@@ -107,9 +129,9 @@ public class RecyclerMenu extends AbstractContainerMenu {
         }
 
         // 2. Zona Central -> Proceso, botella, libro
-        this.addSlot(new RecyclerSlots.ProcessSlot(container, PROCESSING_SLOT, CENTER_MID - 8, 17));
-        this.addSlot(new RecyclerSlots.RestrictedSlot(container, BOTTLE_SLOT, CENTER_MID - 17, 35, new ItemStack(Items.GLASS_BOTTLE)));
-        this.addSlot(new RecyclerSlots.RestrictedSlot(container, BOOK_SLOT, CENTER_MID + 1, 35, new ItemStack(Items.BOOK)));
+        this.addSlot(new RecyclerSlots.ProcessSlot(container, PROCESSING_SLOT, PROCESS_X, PROCESS_Y));
+        this.addSlot(new RecyclerSlots.RestrictedSlot(container, BOTTLE_SLOT, BOTTLE_X, BOTTLE_Y, new ItemStack(Items.GLASS_BOTTLE)));
+        this.addSlot(new RecyclerSlots.RestrictedSlot(container, BOOK_SLOT, BOOK_X, BOOK_Y, new ItemStack(Items.BOOK)));
 
         // 3. Output Grid - Derecha -> Indices 21 al 38
         for (int i = 0; i < GRID_ROWS; i++) {
