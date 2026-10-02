@@ -126,11 +126,29 @@ public class RecyclerLogic {
     }
 
     /**
+     * ES: true si el stack esta TENIDO de verdad. Ojo: la armadura de cuero
+     * (y otros items teñibles) trae DYED_COLOR por defecto como componente
+     * base del item (color cuero 0xA06540), asi que "tiene DYED_COLOR" NO
+     * significa "esta teñido". Se compara contra el valor por defecto del
+     * item: si es igual (o el item no tiene valor por defecto y el stack
+     * tampoco tiene color), no esta teñido.
+     */
+    private static boolean isActuallyDyed(ItemStack stack) {
+        DyedItemColor current = stack.get(DataComponents.DYED_COLOR);
+        if (current == null) {
+            return false;
+        }
+        DyedItemColor itemDefault = stack.getItem().components().get(DataComponents.DYED_COLOR);
+        return !current.equals(itemDefault);
+    }
+
+    /**
      * ES: Punto de entrada principal. Busca la receta que produjo este item probando,
      * en orden de prioridad: Stonecutter -> Hornos -> Crafting (shaped/shapeless/transmute)
      * -> Herrería. Devuelve null si no hay receta, si está en la blacklist, si el item
-     * tiene un DYED_COLOR (items teñidos no se reconstruyen a materiales), o si es un
-     * contenedor con contenido (shulker/bundle), para no perder lo que lleva dentro.
+     * está teñido (items teñidos no se reconstruyen a materiales; la armadura de cuero
+     * SIN teñir sí se recicla), o si es un contenedor con contenido (shulker/bundle),
+     * para no perder lo que lleva dentro.
      */
     public static RecipeMatch getRecipeMatch(ItemStack inputStack, Level level) {
         if (inputStack.isEmpty() || level.isClientSide() || level.getServer() == null) {
@@ -143,8 +161,7 @@ public class RecyclerLogic {
 
         // ES: Items teñidos (armadura de cuero, etc.) no devuelven materiales al reciclar.
         // Si están encantados, el encantamiento se extrae por otra vía (ver processRecycling).
-        DyedItemColor dyedColor = inputStack.get(DataComponents.DYED_COLOR);
-        if (dyedColor != null) {
+        if (isActuallyDyed(inputStack)) {
             return null;
         }
 
@@ -345,7 +362,7 @@ public class RecyclerLogic {
         return null;
     }
 
-        // ================= CRAFTING (genérico: shaped, shapeless, transmute, dyed, etc.) =================
+    // ================= CRAFTING (genérico: shaped, shapeless, transmute, dyed, etc.) =================
     // ES: En vez de comprobar tipos concretos (ShapedRecipe, ShapelessRecipe, TransmuteRecipe...),
     // se maneja de forma genérica porque el juego sigue agregando nuevas subclases de receta de
     // crafteo (ej. "minecraft:crafting_dyed", usado para reteñir camas y arneses). Comprobar solo
@@ -470,6 +487,7 @@ public class RecyclerLogic {
         }
         return null;
     }
+
     // ================= HORNOS (smelting / blasting / smoking / campfire) =================
     private static RecipeMatch findInCooking(ItemStack target, RecipeManager recipeManager) {
         RecipeMatch result;
