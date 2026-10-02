@@ -1,6 +1,7 @@
 package com.valhyi.recyclertable.gui;
 
 import com.valhyi.recyclertable.block.entity.RecyclerBlockEntity;
+import com.valhyi.recyclertable.init.ModBlocks;
 import com.valhyi.recyclertable.init.ModMenuTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -10,6 +11,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -211,9 +213,16 @@ public class RecyclerMenu extends AbstractContainerMenu {
         return itemStack;
     }
 
+    /**
+     * ES: SimpleContainer.stillValid siempre devuelve true, asi que el menu
+     * nunca se cerraba al alejarse ni al romper la mesa con la GUI abierta.
+     * Ahora se comprueba que el bloque en blockPos siga siendo la mesa de
+     * reciclaje y que el jugador este a distancia de interaccion.
+     */
     @Override
     public boolean stillValid(Player player) {
-        return this.container.stillValid(player);
+        return stillValid(ContainerLevelAccess.create(player.level(), this.blockPos),
+                player, ModBlocks.RECYCLER_TABLE.get());
     }
 
     @Override
