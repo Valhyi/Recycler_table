@@ -96,6 +96,11 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
     public RecyclerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.RECYCLER_BLOCK_ENTITY.get(), pos, state);
+
+        // ES: SimpleContainer avisa a sus listeners cada vez que cambia un slot
+        // (jugador en la GUI, tolvas, tuberias). Sin esto el BlockEntity no se
+        // marca como modificado y el chunk puede no guardarse, perdiendo items.
+        this.container.addListener(changed -> this.setChanged());
     }
 
     @Override
@@ -382,9 +387,11 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
             }
         }
 
-        // No se encontro ningun item reciclable en el input: detener Auto y Play
-        if (autoMode || singleShotPending) {
-            autoMode = false;
+        // ES: No hay nada que reciclar en el input. Play (un solo ciclo) se
+        // cancela, pero Auto se MANTIENE encendido: asi una tolva/tuberia que
+        // entrega items con pausas no obliga a reactivarlo a mano. Auto solo
+        // se apaga cuando el output esta lleno (ver attemptResolveProcessing).
+        if (singleShotPending) {
             singleShotPending = false;
             this.setChanged();
         }
@@ -461,6 +468,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         ContainerHelper.saveAllItems(output, items);
         output.putInt("processing_ticks", this.processingTicks);
         output.putBoolean("auto_mode", this.autoMode);
+        output.putBoolean("single_shot_pending", this.singleShotPending);
     }
 
     @Override
@@ -473,5 +481,6 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         }
         this.processingTicks = input.getIntOr("processing_ticks", 0);
         this.autoMode = input.getBooleanOr("auto_mode", false);
+        this.singleShotPending = input.getBooleanOr("single_shot_pending", false);
     }
 }
