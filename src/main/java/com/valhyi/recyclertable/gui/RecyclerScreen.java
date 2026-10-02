@@ -763,4 +763,20 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         }
         return ItemStack.EMPTY;
     }
+
+    /**
+     * ES: El panel de tags esta FUERA de los limites del GUI, asi que vanilla
+     * lo cuenta como "clic fuera" y tira al suelo el item que lleva el
+     * cursor. Dentro del rectangulo del panel (si esta abierto) nunca es
+     * "fuera".
+     */
+    @Override
+    protected boolean hasClickedOutside(double mouseX, double mouseY, int guiLeft, int guiTop) {
+        if (showingTagsPanel
+                && mouseX >= panelX && mouseX < panelX + TAG_PANEL_WIDTH
+                && mouseY >= panelY && mouseY < panelY + TAG_PANEL_HEIGHT) {
+            return false;
+        }
+        return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop);
+    }
 }
