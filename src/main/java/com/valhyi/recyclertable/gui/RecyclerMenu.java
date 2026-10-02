@@ -44,9 +44,9 @@ public class RecyclerMenu extends AbstractContainerMenu {
 
     // ================= LAYOUT (pixeles EXACTOS de recycler_gui.png) =================
     // ES: Todas las coordenadas son absolutas, relativas a la esquina superior
-    // izquierda de la textura, y corresponden a la esquina del AREA DEL ITEM
-    // (16x16), es decir, 1 px dentro del borde visible del slot.
-    // Ya no se calculan a partir de margenes: para mover algo, cambia el numero.
+    // izquierda de la textura. Las de SLOTS corresponden a la esquina del AREA
+    // DEL ITEM (16x16), 1 px dentro del borde visible. Las de BOTONES son la
+    // esquina del propio boton (sprite de 18x18).
     private static final int SLOT_SIZE = 18;
 
     // Tamano total del GUI (la textura mide 176 x 220)
@@ -70,13 +70,17 @@ public class RecyclerMenu extends AbstractContainerMenu {
     public static final int BOOK_X = 92;
     public static final int BOOK_Y = 48;
 
-    // Botones (14x14 px)
-    public static final int BUTTON_SIZE = 14;
-    public static final int PLAY_BUTTON_X = 70;
-    public static final int PLAY_BUTTON_Y = 80;
+    // Botones (18x18 px)
+    // Medidas del usuario (borde a borde):
+    //   grid input -> play = 5, play <-> auto = 8, auto -> grid output = 5
+    //   botella/libro -> play/auto = 11, play/auto -> config = 6
+    //   config -> grids (izq y der) = 18, config -> inventario = 19
+    public static final int BUTTON_SIZE = 18;
+    public static final int PLAY_BUTTON_X = 66;
+    public static final int PLAY_BUTTON_Y = 76;
     public static final int AUTO_BUTTON_X = 92;
-    public static final int AUTO_BUTTON_Y = 80;
-    public static final int CONFIG_BUTTON_X = 81;
+    public static final int AUTO_BUTTON_Y = 76;
+    public static final int CONFIG_BUTTON_X = 79;
     public static final int CONFIG_BUTTON_Y = 100;
 
     // Inventario del jugador (3 filas) y hotbar
