@@ -14,8 +14,15 @@ import java.util.List;
  * ES: Cliente -> Servidor. El jugador eligió, para el item "target", usar la
  * receta cuya firma de ingredientes es "ingredientSignature" (ver
  * MultiRecipeScanner.RecipeVariant / RecyclerPreferences).
+ *
+ * ES: La lista se limita a 16 elementos (una receta de crafteo tiene como
+ * maximo 9 ingredientes) para que un cliente modificado no pueda mandar
+ * listas gigantes. ModNetworking ademas valida que la firma sea una
+ * variante real.
  */
 public record RecyclerPreferencePayload(Item target, List<Item> ingredientSignature) implements CustomPacketPayload {
+
+    private static final int MAX_SIGNATURE_SIZE = 16;
 
     public static final Type<RecyclerPreferencePayload> TYPE =
             new Type<>(RecyclerTable.resLoc("recycler_preference"));
@@ -23,7 +30,7 @@ public record RecyclerPreferencePayload(Item target, List<Item> ingredientSignat
     public static final StreamCodec<RegistryFriendlyByteBuf, RecyclerPreferencePayload> STREAM_CODEC =
             StreamCodec.composite(
                     ByteBufCodecs.registry(Registries.ITEM), RecyclerPreferencePayload::target,
-                    ByteBufCodecs.registry(Registries.ITEM).apply(ByteBufCodecs.list()), RecyclerPreferencePayload::ingredientSignature,
+                    ByteBufCodecs.registry(Registries.ITEM).apply(ByteBufCodecs.list(MAX_SIGNATURE_SIZE)), RecyclerPreferencePayload::ingredientSignature,
                     RecyclerPreferencePayload::new
             );
 
