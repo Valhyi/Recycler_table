@@ -193,6 +193,10 @@ public class RecyclerMenu extends AbstractContainerMenu {
                 if (!this.moveItemStackTo(slotStack, PLAYER_INV_START, PLAYER_HOTBAR_END, true)) {
                     return ItemStack.EMPTY;
                 }
+            } else if (slotIndex == BOTTLE_SLOT || slotIndex == BOOK_SLOT) {
+                if (!this.moveItemStackTo(slotStack, PLAYER_INV_START, PLAYER_HOTBAR_END, true)) {
+                    return ItemStack.EMPTY;
+                }
             } else {
                 return ItemStack.EMPTY;
             }
