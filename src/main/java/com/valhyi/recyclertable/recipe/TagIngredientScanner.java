@@ -1,21 +1,14 @@
 package com.valhyi.recyclertable.recipe;
 
-import com.mojang.logging.LogUtils;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.DyeItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.RecipeManager;
-import net.minecraft.world.item.crafting.RecipeType;
-import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -61,8 +54,6 @@ import java.util.Set;
  */
 public class TagIngredientScanner {
 
-    private static final Logger LOGGER = LogUtils.getLogger();
-
     // ES: Sufijos conocidos de "variante de material" en items de madera y
     // similares. Se prueban de más largo a más corto para no cortar mal
     // (ej. "_fence_gate" antes que "_fence"). "stripped_" se saca aparte
@@ -72,54 +63,6 @@ public class TagIngredientScanner {
             "_chest_boat", "_stairs", "_slab", "_planks", "_fence", "_door",
             "_button", "_sign", "_boat", "_log", "_wood", "_leaves", "_sapling"
     );
-
-    // ES: clave canónica -> lista de items del grupo (para mostrar en el panel)
-    private static Map<String, List<Item>> usedGroups = Collections.emptyMap();
-    private static volatile boolean scanned = false;
-
-    public static void scan(RecipeManager recipeManager) {
-        Map<String, List<Item>> found = new HashMap<>();
-
-        for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
-            Recipe<?> recipe = holder.value();
-
-            List<Ingredient> ingredients;
-            try {
-                ingredients = recipe.placementInfo().ingredients();
-            } catch (Exception ex) {
-                continue;
-            }
-
-            for (Ingredient ingredient : ingredients) {
-                List<Item> items = ingredient.items().map(Holder::value).distinct().toList();
-                if (items.size() < 2) continue;
-
-                String key = canonicalKey(items);
-                found.putIfAbsent(key, sortedCopy(items));
-            }
-        }
-
-        usedGroups = found;
-        scanned = true;
-
-        LOGGER.info("[RecyclerTable] Escaneo de grupos de ingrediente completo: "
-                + found.size() + " grupo(s) usados en recetas");
-        for (Map.Entry<String, List<Item>> entry : found.entrySet()) {
-            LOGGER.info("[RecyclerTable]   " + entry.getKey());
-        }
-    }
-
-    public static boolean isScanned() {
-        return scanned;
-    }
-
-    public static Map<String, List<Item>> getUsedGroups() {
-        return usedGroups;
-    }
-
-    public static List<Item> getMembersFor(String groupKey) {
-        return usedGroups.getOrDefault(groupKey, Collections.emptyList());
-    }
 
     /**
      * ES: Clave canónica y estable para un conjunto de items: ordenados por
@@ -285,7 +228,7 @@ public class TagIngredientScanner {
         return variants;
     }
 
-    // ================= NUEVO: detección "cruda" de grupos (sin generar ItemStacks) =================
+    // ================= Detección "cruda" de grupos (sin generar ItemStacks) =================
 
     /**
      * ES: Info de UN grupo de ingrediente intercambiable (2+ items
