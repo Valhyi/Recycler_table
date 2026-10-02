@@ -5,12 +5,13 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.HoneycombItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.BundleContents;
 import net.minecraft.world.item.component.DyedItemColor;
+import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.item.crafting.AbstractCookingRecipe;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -18,13 +19,10 @@ import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.item.crafting.ShapedRecipe;
-import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.item.crafting.SmithingRecipeInput;
 import net.minecraft.world.item.crafting.SmithingTransformRecipe;
 import net.minecraft.world.item.crafting.StonecutterRecipe;
-import net.minecraft.world.item.crafting.TransmuteRecipe;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -130,8 +128,9 @@ public class RecyclerLogic {
     /**
      * ES: Punto de entrada principal. Busca la receta que produjo este item probando,
      * en orden de prioridad: Stonecutter -> Hornos -> Crafting (shaped/shapeless/transmute)
-     * -> Herrería. Devuelve null si no hay receta, si está en la blacklist, o si el item
-     * tiene un DYED_COLOR (items teñidos no se reconstruyen a materiales).
+     * -> Herrería. Devuelve null si no hay receta, si está en la blacklist, si el item
+     * tiene un DYED_COLOR (items teñidos no se reconstruyen a materiales), o si es un
+     * contenedor con contenido (shulker/bundle), para no perder lo que lleva dentro.
      */
     public static RecipeMatch getRecipeMatch(ItemStack inputStack, Level level) {
         if (inputStack.isEmpty() || level.isClientSide() || level.getServer() == null) {
@@ -149,8 +148,27 @@ public class RecyclerLogic {
             return null;
         }
 
+        // ES: Shulkers/bundles con contenido pasan al output intactos; si se
+        // reciclaran, el contenido se perderia.
+        if (hasStoredContents(inputStack)) {
+            return null;
+        }
+
         RecipeManager recipeManager = level.getServer().getRecipeManager();
         return findByPriority(inputStack, recipeManager, level);
+    }
+
+    /**
+     * ES: true si el stack es un contenedor (shulker, etc.) o un bundle con
+     * items dentro.
+     */
+    private static boolean hasStoredContents(ItemStack stack) {
+        ItemContainerContents container = stack.get(DataComponents.CONTAINER);
+        if (container != null && !container.equals(ItemContainerContents.EMPTY)) {
+            return true;
+        }
+        BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
+        return bundle != null && !bundle.equals(BundleContents.EMPTY);
     }
 
     private static RecipeMatch findByPriority(ItemStack target, RecipeManager recipeManager, Level level) {
@@ -526,8 +544,35 @@ public class RecyclerLogic {
      * acumuladas). Si el item está encantado, se procesa unidad por unidad (1 botella +
      * 1 libro por unidad). Si no, se calculan lotes según cuántas unidades pide la receta
      * original; el sobrante que no alcanza para un lote completo pasa sin convertir.
+     * Los resultados se devuelven ya partidos en stacks que respetan el tamaño máximo
+     * de cada item.
      */
     public static RecyclingOutput processRecycling(ItemStack stackInProcess, ItemStack emptyBottle, ItemStack book, Level level) {
+        RecyclingOutput raw = processRecyclingRaw(stackInProcess, emptyBottle, book, level);
+        return new RecyclingOutput(splitByMaxStack(raw.results()), raw.bottlesConsumed(), raw.booksConsumed());
+    }
+
+    /**
+     * ES: Parte cada resultado en stacks que respeten su tamano maximo
+     * (ej. 64 bloques de nieve -> bolas de nieve de 16 por slot, no un
+     * stack de 64).
+     */
+    private static List<ItemStack> splitByMaxStack(List<ItemStack> stacks) {
+        List<ItemStack> out = new ArrayList<>();
+        for (ItemStack stack : stacks) {
+            if (stack.isEmpty()) continue;
+            int max = Math.max(1, stack.getMaxStackSize());
+            int remaining = stack.getCount();
+            while (remaining > 0) {
+                int take = Math.min(max, remaining);
+                out.add(stack.copyWithCount(take));
+                remaining -= take;
+            }
+        }
+        return out;
+    }
+
+    private static RecyclingOutput processRecyclingRaw(ItemStack stackInProcess, ItemStack emptyBottle, ItemStack book, Level level) {
         List<ItemStack> results = new ArrayList<>();
 
         if (stackInProcess.isEmpty() || level == null) {
