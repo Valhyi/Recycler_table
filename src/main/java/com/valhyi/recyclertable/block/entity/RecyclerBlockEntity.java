@@ -40,7 +40,17 @@ import static com.valhyi.recyclertable.gui.RecyclerMenu.OUTPUT_SLOTS_START;
 import static com.valhyi.recyclertable.gui.RecyclerMenu.PROCESSING_SLOT;
 
 public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
-    private final SimpleContainer container = new SimpleContainer(CONTAINER_SIZE);
+    // ES: SimpleContainer llama a setChanged() cada vez que cambia un slot
+    // (jugador en la GUI, tolvas, tuberias). Se sobreescribe para avisar al
+    // BlockEntity; sin esto el chunk puede no guardarse y se pierden items.
+    // (En esta version SimpleContainer ya no tiene addListener.)
+    private final SimpleContainer container = new SimpleContainer(CONTAINER_SIZE) {
+        @Override
+        public void setChanged() {
+            super.setChanged();
+            RecyclerBlockEntity.this.setChanged();
+        }
+    };
 
     private int processingTicks = 0;
     private static final int PROCESSING_TIME = 60; // Ticks que dura un ciclo de proceso
@@ -96,11 +106,6 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
     public RecyclerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.RECYCLER_BLOCK_ENTITY.get(), pos, state);
-
-        // ES: SimpleContainer avisa a sus listeners cada vez que cambia un slot
-        // (jugador en la GUI, tolvas, tuberias). Sin esto el BlockEntity no se
-        // marca como modificado y el chunk puede no guardarse, perdiendo items.
-        this.container.addListener(changed -> this.setChanged());
     }
 
     @Override
