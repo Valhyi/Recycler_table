@@ -1,2 +1,26 @@
-node_modules/
+# Gradle
+.gradle/
+build/
+
+# NeoForge dev runs
+run/
+runs/
+run-data/
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+out/
+
+# Misc
 .env
+node_modules/
+*.log
+hs_err_pid*
