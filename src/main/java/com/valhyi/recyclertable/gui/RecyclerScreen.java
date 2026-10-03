@@ -348,8 +348,11 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         boolean autoActive = this.menu.isAutoActive();
         boolean processing = this.menu.isProcessing();
 
-        if (this.playIdleButton != null) this.playIdleButton.visible = !processing;
-        if (this.playActiveButton != null) this.playActiveButton.visible = processing;
+        // ES: Play solo se ve "activo" cuando el ciclo lo inicio Play. Mientras
+        // Auto esta encendido, los ciclos son de Auto y Play no debe iluminarse.
+        boolean playBusy = processing && !autoActive;
+        if (this.playIdleButton != null) this.playIdleButton.visible = !playBusy;
+        if (this.playActiveButton != null) this.playActiveButton.visible = playBusy;
         if (this.autoOffButton != null) this.autoOffButton.visible = !autoActive;
         if (this.autoOnButton != null) this.autoOnButton.visible = autoActive;
         if (this.configButton != null) this.configButton.visible = !showingTagsPanel;
