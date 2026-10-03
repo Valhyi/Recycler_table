@@ -7,6 +7,7 @@ import com.valhyi.recyclertable.network.RecyclerPreferencePayload;
 import com.valhyi.recyclertable.recipe.MultiRecipeScanner;
 import com.valhyi.recyclertable.recipe.RecyclerPreferences;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.components.WidgetSprites;
@@ -92,11 +93,40 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             RecyclerTable.resLoc("widget/config_button_highlighted")
     );
 
+    // ES: Config "encendido" (panel de tags abierto): mismo patron que
+    // PLAY_ACTIVE_SPRITES, usa la textura resaltada tanto con el cursor encima
+    // como sin el, para que se vea activo mientras el panel este abierto.
+    private static final WidgetSprites CONFIG_ACTIVE_SPRITES = new WidgetSprites(
+            RecyclerTable.resLoc("widget/config_button_highlighted"),
+            RecyclerTable.resLoc("widget/config_button_highlighted")
+    );
+
+    /**
+     * ES: ImageButton que NUNCA conserva el foco del teclado/clic. Al hacer clic
+     * en un boton vanilla, ese boton pasa a tener el foco y se dibuja con el
+     * sprite "highlighted"; al hacer clic en OTRO boton, el primero pierde el
+     * foco y vuelve a verse "apagado" aunque su estado siga activo. Quitando el
+     * foco, el sprite depende solo del cursor encima (hover) y del estado real
+     * (por eso play/auto/config tienen sprites propios de estado activo), asi
+     * cada boton es visualmente independiente de los demas.
+     */
+    private static class StateButton extends ImageButton {
+        StateButton(int x, int y, int width, int height, WidgetSprites sprites, Button.OnPress onPress, Component message) {
+            super(x, y, width, height, sprites, onPress, message);
+        }
+
+        @Override
+        public void setFocused(boolean focused) {
+            super.setFocused(false);
+        }
+    }
+
     private ImageButton playIdleButton;
     private ImageButton playActiveButton;
     private ImageButton autoOffButton;
     private ImageButton autoOnButton;
     private ImageButton configButton;
+    private ImageButton configActiveButton;
     private StringWidget detailLabel;
     private final ConflictRowButton[] rowButtons = new ConflictRowButton[VISIBLE_ROWS];
     private final ItemIconButton[] variantButtons = new ItemIconButton[MAX_VARIANT_SLOTS];
@@ -179,32 +209,38 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         int configX = this.leftPos + RecyclerMenu.CONFIG_BUTTON_X;
         int configY = this.topPos + RecyclerMenu.CONFIG_BUTTON_Y;
 
-        this.playIdleButton = this.addRenderableWidget(new ImageButton(
+        this.playIdleButton = this.addRenderableWidget(new StateButton(
                 playX, playY, size, size, PLAY_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.PLAY),
                 Component.translatable("gui.recyclertable.play_button")
         ));
 
-        this.playActiveButton = this.addRenderableWidget(new ImageButton(
+        this.playActiveButton = this.addRenderableWidget(new StateButton(
                 playX, playY, size, size, PLAY_ACTIVE_SPRITES,
                 button -> {},
                 Component.translatable("gui.recyclertable.play_button")
         ));
 
-        this.autoOffButton = this.addRenderableWidget(new ImageButton(
+        this.autoOffButton = this.addRenderableWidget(new StateButton(
                 autoX, autoY, size, size, AUTO_OFF_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.AUTO),
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
-        this.autoOnButton = this.addRenderableWidget(new ImageButton(
+        this.autoOnButton = this.addRenderableWidget(new StateButton(
                 autoX, autoY, size, size, AUTO_ON_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.AUTO),
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
-        this.configButton = this.addRenderableWidget(new ImageButton(
+        this.configButton = this.addRenderableWidget(new StateButton(
                 configX, configY, size, size, CONFIG_SPRITES,
+                button -> this.showingTagsPanel = !this.showingTagsPanel,
+                Component.translatable("gui.recyclertable.config_button")
+        ));
+
+        this.configActiveButton = this.addRenderableWidget(new StateButton(
+                configX, configY, size, size, CONFIG_ACTIVE_SPRITES,
                 button -> this.showingTagsPanel = !this.showingTagsPanel,
                 Component.translatable("gui.recyclertable.config_button")
         ));
@@ -316,6 +352,8 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         if (this.playActiveButton != null) this.playActiveButton.visible = processing;
         if (this.autoOffButton != null) this.autoOffButton.visible = !autoActive;
         if (this.autoOnButton != null) this.autoOnButton.visible = autoActive;
+        if (this.configButton != null) this.configButton.visible = !showingTagsPanel;
+        if (this.configActiveButton != null) this.configActiveButton.visible = showingTagsPanel;
 
         updateRowButtons();
         updateVariantButtons();
