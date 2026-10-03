@@ -58,6 +58,13 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     private boolean autoMode = false;
     private boolean singleShotPending = false;
 
+    // ES: Con Auto encendido y el input vacio, Auto sigue activo este numero de
+    // ticks (240 = 12 s) esperando mas items (ej. de una tolva). Si en ese lapso
+    // no llega nada, se apaga solo. El contador se reinicia cada vez que se
+    // encuentra un item para procesar. No se guarda en NBT (es transitorio).
+    private static final int AUTO_IDLE_TIMEOUT = 240;
+    private int autoIdleTicks = 0;
+
     private final net.minecraft.world.inventory.ContainerData dataAccess = new net.minecraft.world.inventory.ContainerData() {
         @Override
         public int get(int index) {
@@ -97,6 +104,7 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
     public void toggleAutoMode() {
         autoMode = !autoMode;
+        autoIdleTicks = 0;
         this.setChanged();
     }
 
@@ -387,18 +395,28 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
                 accumulateMatchingItems();
 
                 singleShotPending = false; // Play solo inicia 1 ciclo y se apaga
+                autoIdleTicks = 0;
                 this.setChanged();
                 return;
             }
         }
 
         // ES: No hay nada que reciclar en el input. Play (un solo ciclo) se
-        // cancela, pero Auto se MANTIENE encendido: asi una tolva/tuberia que
-        // entrega items con pausas no obliga a reactivarlo a mano. Auto solo
-        // se apaga cuando el output esta lleno (ver attemptResolveProcessing).
+        // cancela. Auto sigue encendido AUTO_IDLE_TIMEOUT ticks esperando mas
+        // items (tolvas con pausas entre entregas); pasado ese tiempo sin que
+        // llegue nada, se apaga solo. Tambien se apaga si el output esta lleno
+        // (ver attemptResolveProcessing).
         if (singleShotPending) {
             singleShotPending = false;
             this.setChanged();
+        }
+        if (autoMode) {
+            autoIdleTicks++;
+            if (autoIdleTicks >= AUTO_IDLE_TIMEOUT) {
+                autoMode = false;
+                autoIdleTicks = 0;
+                this.setChanged();
+            }
         }
     }
 
