@@ -13,6 +13,10 @@
     "minecraft:amethyst_shard",
     "minecraft:iron_nugget",
     "minecraft:gold_nugget",
+    {
+      "id": "minecraft:copper_nugget",
+      "required": false
+    },
     "minecraft:cooked_beef",
     "minecraft:cooked_porkchop",
     "minecraft:cooked_chicken",
