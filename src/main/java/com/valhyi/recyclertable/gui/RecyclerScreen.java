@@ -7,9 +7,7 @@ import com.valhyi.recyclertable.network.RecyclerPreferencePayload;
 import com.valhyi.recyclertable.recipe.MultiRecipeScanner;
 import com.valhyi.recyclertable.recipe.RecyclerPreferences;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
-import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -47,25 +45,27 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     // (igual que un cofre vanilla).
     private static final int INVENTORY_LABEL_Y = RecyclerMenu.PLAYER_INV_Y - 12;
 
-    private static final int TAG_PANEL_GAP = 4;
-    private static final int TAG_PANEL_WIDTH = 120;
-    private static final int TAG_PANEL_HEIGHT = 166;
+    // ================= PANEL DE TAGS (108 x 220) =================
+    // ES: Layout horizontal (de izquierda a derecha), en pixeles de la textura
+    // recycler_gui_tag.png:
+    //   6 (margen) + 36 (lista: 2 slots) + 6 (divisor) + 54 (grid: 3 slots) + 6 (margen) = 108
+    // Vertical: 6 de margen arriba y abajo -> 208 px utiles = 11 filas de 18 (198 px),
+    // sobran 10 px abajo.
+    private static final int TAG_PANEL_GAP = 5;
+    private static final int TAG_PANEL_WIDTH = 108;
+    private static final int TAG_PANEL_HEIGHT = 220;
 
-    private static final int PANEL_PAD_X = 4;
-    private static final int PANEL_PAD_TOP = 8;
-    private static final int PANEL_PAD_BOTTOM = 6;
+    private static final int PANEL_PAD_X = 6;
+    private static final int PANEL_PAD_TOP = 6;
 
-    private static final int LIST_COLUMN_WIDTH = 36; // 2 iconos de 16px (item + preferencia)
-    private static final int LIST_GRID_GAP = 6;
+    private static final int LIST_COLUMN_WIDTH = 36; // 2 slots de 18px (item + preferencia)
+    private static final int LIST_GRID_GAP = 6;      // divisor rosa central
     private static final int ROW_HEIGHT = 18;
-    private static final int VISIBLE_ROWS = 8;
-
-    private static final int DETAIL_LABEL_HEIGHT = 10;
-    private static final int DETAIL_GRID_GAP = 4;
+    private static final int VISIBLE_ROWS = 11;
 
     private static final int VARIANT_ICON_SIZE = 18;
     private static final int VARIANT_COLS = 3;
-    private static final int VARIANT_ROWS = 7;
+    private static final int VARIANT_ROWS = 11;
     private static final int MAX_VARIANT_SLOTS = VARIANT_COLS * VARIANT_ROWS;
 
     private static final WidgetSprites PLAY_SPRITES = new WidgetSprites(
@@ -93,41 +93,11 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             RecyclerTable.resLoc("widget/config_button_highlighted")
     );
 
-    // ES: Config "encendido" (panel de tags abierto): mismo patron que
-    // PLAY_ACTIVE_SPRITES, usa la textura resaltada tanto con el cursor encima
-    // como sin el, para que se vea activo mientras el panel este abierto.
-    private static final WidgetSprites CONFIG_ACTIVE_SPRITES = new WidgetSprites(
-            RecyclerTable.resLoc("widget/config_button_highlighted"),
-            RecyclerTable.resLoc("widget/config_button_highlighted")
-    );
-
-    /**
-     * ES: ImageButton que NUNCA conserva el foco del teclado/clic. Al hacer clic
-     * en un boton vanilla, ese boton pasa a tener el foco y se dibuja con el
-     * sprite "highlighted"; al hacer clic en OTRO boton, el primero pierde el
-     * foco y vuelve a verse "apagado" aunque su estado siga activo. Quitando el
-     * foco, el sprite depende solo del cursor encima (hover) y del estado real
-     * (por eso play/auto/config tienen sprites propios de estado activo), asi
-     * cada boton es visualmente independiente de los demas.
-     */
-    private static class StateButton extends ImageButton {
-        StateButton(int x, int y, int width, int height, WidgetSprites sprites, Button.OnPress onPress, Component message) {
-            super(x, y, width, height, sprites, onPress, message);
-        }
-
-        @Override
-        public void setFocused(boolean focused) {
-            super.setFocused(false);
-        }
-    }
-
     private ImageButton playIdleButton;
     private ImageButton playActiveButton;
     private ImageButton autoOffButton;
     private ImageButton autoOnButton;
     private ImageButton configButton;
-    private ImageButton configActiveButton;
-    private StringWidget detailLabel;
     private final ConflictRowButton[] rowButtons = new ConflictRowButton[VISIBLE_ROWS];
     private final ItemIconButton[] variantButtons = new ItemIconButton[MAX_VARIANT_SLOTS];
 
@@ -184,8 +154,6 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     private int listY;
     private int gridX;
     private int gridY;
-    private int detailY;
-    private int detailLabelWidth;
 
     public RecyclerScreen(RecyclerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title, RecyclerMenu.IMAGE_WIDTH, RecyclerMenu.IMAGE_HEIGHT);
@@ -209,56 +177,52 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         int configX = this.leftPos + RecyclerMenu.CONFIG_BUTTON_X;
         int configY = this.topPos + RecyclerMenu.CONFIG_BUTTON_Y;
 
-        this.playIdleButton = this.addRenderableWidget(new StateButton(
+        this.playIdleButton = this.addRenderableWidget(new ImageButton(
                 playX, playY, size, size, PLAY_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.PLAY),
                 Component.translatable("gui.recyclertable.play_button")
         ));
 
-        this.playActiveButton = this.addRenderableWidget(new StateButton(
+        this.playActiveButton = this.addRenderableWidget(new ImageButton(
                 playX, playY, size, size, PLAY_ACTIVE_SPRITES,
                 button -> {},
                 Component.translatable("gui.recyclertable.play_button")
         ));
 
-        this.autoOffButton = this.addRenderableWidget(new StateButton(
+        this.autoOffButton = this.addRenderableWidget(new ImageButton(
                 autoX, autoY, size, size, AUTO_OFF_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.AUTO),
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
-        this.autoOnButton = this.addRenderableWidget(new StateButton(
+        this.autoOnButton = this.addRenderableWidget(new ImageButton(
                 autoX, autoY, size, size, AUTO_ON_SPRITES,
                 button -> sendButtonPacket(RecyclerButtonPayload.ButtonType.AUTO),
                 Component.translatable("gui.recyclertable.auto_button")
         ));
 
-        this.configButton = this.addRenderableWidget(new StateButton(
+        this.configButton = this.addRenderableWidget(new ImageButton(
                 configX, configY, size, size, CONFIG_SPRITES,
                 button -> this.showingTagsPanel = !this.showingTagsPanel,
                 Component.translatable("gui.recyclertable.config_button")
         ));
 
-        this.configActiveButton = this.addRenderableWidget(new StateButton(
-                configX, configY, size, size, CONFIG_ACTIVE_SPRITES,
-                button -> this.showingTagsPanel = !this.showingTagsPanel,
-                Component.translatable("gui.recyclertable.config_button")
-        ));
-
+        // ES: Panel de tags: 5 px a la derecha del GUI principal. Lista y grid
+        // arrancan los dos 6 px debajo del borde superior (ya no hay texto).
         this.panelX = this.leftPos + this.imageWidth + TAG_PANEL_GAP;
         this.panelY = this.topPos;
 
         this.listX = panelX + PANEL_PAD_X;
         this.listY = panelY + PANEL_PAD_TOP;
         this.gridX = listX + LIST_COLUMN_WIDTH + LIST_GRID_GAP;
-        this.detailY = panelY + PANEL_PAD_TOP;
-        this.gridY = detailY + DETAIL_LABEL_HEIGHT + DETAIL_GRID_GAP;
-        this.detailLabelWidth = TAG_PANEL_WIDTH - (gridX - panelX) - PANEL_PAD_X;
+        this.gridY = panelY + PANEL_PAD_TOP;
 
+        // ES: Cada boton cubre el slot completo (18x18); el item se dibuja
+        // 1 px adentro, centrado en el slot.
         for (int i = 0; i < VISIBLE_ROWS; i++) {
             final int rowOffset = i;
             this.rowButtons[i] = this.addRenderableWidget(new ConflictRowButton(
-                    listX, listY + i * ROW_HEIGHT, LIST_COLUMN_WIDTH, ROW_HEIGHT - 1,
+                    listX, listY + i * ROW_HEIGHT, LIST_COLUMN_WIDTH, ROW_HEIGHT,
                     button -> selectRow(rowOffset)
             ));
         }
@@ -268,13 +232,10 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             int col = i % VARIANT_COLS;
             int row = i / VARIANT_COLS;
             this.variantButtons[i] = this.addRenderableWidget(new ItemIconButton(
-                    gridX + col * VARIANT_ICON_SIZE, gridY + row * VARIANT_ICON_SIZE, 16,
+                    gridX + col * VARIANT_ICON_SIZE, gridY + row * VARIANT_ICON_SIZE, VARIANT_ICON_SIZE,
                     button -> selectVariant(slotIndex)
             ));
         }
-
-        this.detailLabel = this.addRenderableWidget(new StringWidget(
-                gridX, detailY, detailLabelWidth, DETAIL_LABEL_HEIGHT, Component.empty(), this.font));
 
         this.conflictRows = buildConflictRows();
         this.selectedTarget = conflictRows.isEmpty() ? null : conflictRows.get(0).target();
@@ -348,42 +309,13 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         boolean autoActive = this.menu.isAutoActive();
         boolean processing = this.menu.isProcessing();
 
-        // ES: Play solo se ve "activo" cuando el ciclo lo inicio Play. Mientras
-        // Auto esta encendido, los ciclos son de Auto y Play no debe iluminarse.
-        boolean playBusy = processing && !autoActive;
-        if (this.playIdleButton != null) this.playIdleButton.visible = !playBusy;
-        if (this.playActiveButton != null) this.playActiveButton.visible = playBusy;
+        if (this.playIdleButton != null) this.playIdleButton.visible = !processing;
+        if (this.playActiveButton != null) this.playActiveButton.visible = processing;
         if (this.autoOffButton != null) this.autoOffButton.visible = !autoActive;
         if (this.autoOnButton != null) this.autoOnButton.visible = autoActive;
-        if (this.configButton != null) this.configButton.visible = !showingTagsPanel;
-        if (this.configActiveButton != null) this.configActiveButton.visible = showingTagsPanel;
 
         updateRowButtons();
         updateVariantButtons();
-        updateLabels();
-    }
-
-    private void updateLabels() {
-        if (detailLabel == null) return;
-
-        detailLabel.visible = showingTagsPanel && selectedTarget != null;
-        if (!showingTagsPanel || selectedTarget == null) {
-            detailLabel.setMessage(Component.empty());
-            return;
-        }
-
-        if (MultiRecipeScanner.hasUnlinkedGroups(selectedTarget)) {
-            int groupCount = MultiRecipeScanner.getUnlinkedGroupsFor(selectedTarget).size();
-            String text = groupCount + " grupos";
-            detailLabel.setMessage(Component.literal(this.font.plainSubstrByWidth(text, detailLabelWidth)));
-            return;
-        }
-
-        List<MultiRecipeScanner.RecipeVariant> variants = MultiRecipeScanner.getVariantsFor(selectedTarget);
-        String text = variants.isEmpty()
-                ? "(-)"
-                : "(" + (selectedVariantIndex + 1) + "/" + variants.size() + ")";
-        detailLabel.setMessage(Component.literal(this.font.plainSubstrByWidth(text, detailLabelWidth)));
     }
 
     private void updateRowButtons() {
