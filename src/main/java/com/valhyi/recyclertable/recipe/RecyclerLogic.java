@@ -31,7 +31,9 @@ import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class RecyclerLogic {
 
@@ -47,6 +49,33 @@ public class RecyclerLogic {
      */
     public static final TagKey<Item> BLACKLISTED_FROM_RECYCLING =
             TagKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath("recyclertable", "blacklisted_from_recycling"));
+
+    // ================= CACHÉ DE RECETAS =================
+    // ES: Buscar la receta de un item recorre TODAS las recetas del juego
+    // (assemble() una por una + expansión de tags), y eso se repetía por cada
+    // reciclaje y, peor, CADA TICK mientras un item esperaba espacio en el
+    // output. El resultado de findByPriority solo depende del Item objetivo,
+    // de las recetas cargadas y de las preferencias del jugador, así que se
+    // cachea por Item (incluyendo el "no hay receta", como Optional.empty()).
+    //
+    // Se invalida solo en 3 casos:
+    //  1) Cambia una preferencia -> RecyclerPreferences llama invalidateCache().
+    //  2) /reload o server nuevo -> el RecipeManager es otra instancia; se
+    //     detecta comparando la referencia (cachedFor) en getRecipeMatch.
+    //  3) Manualmente, con invalidateCache().
+    //
+    // Los RecipeMatch cacheados NO se deben mutar: los llamadores siempre
+    // hacen .copy() de los ItemStack antes de usarlos (ver processRecyclingRaw).
+    private static final Map<Item, Optional<RecipeMatch>> MATCH_CACHE = new ConcurrentHashMap<>();
+    private static volatile RecipeManager cachedFor = null;
+
+    /**
+     * ES: Vacía el caché de recetas. Llamar cuando cambie algo que afecte qué
+     * receta se elige (preferencias, recetas recargadas).
+     */
+    public static void invalidateCache() {
+        MATCH_CACHE.clear();
+    }
 
     /**
      * ES: Resultado de encontrar la receta que produce el item objetivo.
@@ -149,6 +178,10 @@ public class RecyclerLogic {
      * está teñido (items teñidos no se reconstruyen a materiales; la armadura de cuero
      * SIN teñir sí se recicla), o si es un contenedor con contenido (shulker/bundle),
      * para no perder lo que lleva dentro.
+     *
+     * ES: Las comprobaciones que dependen del STACK concreto (blacklist, teñido,
+     * contenido) se hacen siempre, baratas y sin caché. Solo la búsqueda de la
+     * receta (cara) pasa por MATCH_CACHE, que depende únicamente del Item.
      */
     public static RecipeMatch getRecipeMatch(ItemStack inputStack, Level level) {
         if (inputStack.isEmpty() || level.isClientSide() || level.getServer() == null) {
@@ -172,7 +205,21 @@ public class RecyclerLogic {
         }
 
         RecipeManager recipeManager = level.getServer().getRecipeManager();
-        return findByPriority(inputStack, recipeManager, level);
+
+        // ES: Si el RecipeManager es otra instancia (/reload, o se abrió otro
+        // mundo/server), todo lo cacheado es de recetas viejas.
+        if (cachedFor != recipeManager) {
+            MATCH_CACHE.clear();
+            cachedFor = recipeManager;
+        }
+
+        Item key = inputStack.getItem();
+        Optional<RecipeMatch> cached = MATCH_CACHE.get(key);
+        if (cached == null) {
+            cached = Optional.ofNullable(findByPriority(inputStack, recipeManager, level));
+            MATCH_CACHE.put(key, cached);
+        }
+        return cached.orElse(null);
     }
 
     /**
