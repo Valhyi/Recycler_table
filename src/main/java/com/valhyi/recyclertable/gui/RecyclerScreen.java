@@ -4,8 +4,8 @@ import com.valhyi.recyclertable.RecyclerTable;
 import com.valhyi.recyclertable.network.RecyclerButtonPayload;
 import com.valhyi.recyclertable.network.RecyclerGroupPreferencePayload;
 import com.valhyi.recyclertable.network.RecyclerPreferencePayload;
+import com.valhyi.recyclertable.recipe.ClientRecyclerData;
 import com.valhyi.recyclertable.recipe.MultiRecipeScanner;
-import com.valhyi.recyclertable.recipe.RecyclerPreferences;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.WidgetSprites;
@@ -147,6 +147,12 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     // recalcular la asignacion de filas dos veces por click/scroll.
     private List<Segment> currentSegments = List.of();
 
+    // ES: MULTIJUGADOR: ultimas versiones de ClientRecyclerData vistas por
+    // esta pantalla. Si cambian (llego un paquete del servidor con el menu ya
+    // abierto), containerTick reconstruye la lista o refresca la seleccion.
+    private int seenConflictsVersion = -1;
+    private int seenPrefsVersion = -1;
+
     private int panelX;
     private int panelY;
 
@@ -237,9 +243,15 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             ));
         }
 
+        // ES: MULTIJUGADOR: los conflictos y las preferencias ya llegaron del
+        // servidor ANTES de abrirse esta pantalla (ver RecyclerBlock /
+        // ModNetworking.sendFullSync), asi que aqui ya estan en
+        // MultiRecipeScanner / ClientRecyclerData.
         this.conflictRows = buildConflictRows();
         this.selectedTarget = conflictRows.isEmpty() ? null : conflictRows.get(0).target();
         loadCurrentPreferenceIndex();
+        this.seenConflictsVersion = ClientRecyclerData.getConflictsVersion();
+        this.seenPrefsVersion = ClientRecyclerData.getPrefsVersion();
 
         updateButtonStates();
     }
@@ -272,7 +284,43 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
     @Override
     public void containerTick() {
         super.containerTick();
+        syncFromServerData();
         updateButtonStates();
+    }
+
+    /**
+     * ES: MULTIJUGADOR. Si llego un paquete del servidor mientras el menu
+     * esta abierto (otro jugador cambio una preferencia, o se recargo el
+     * mapa de conflictos), se refresca aqui sin reabrir la pantalla.
+     * - Conflictos nuevos: se reconstruye la lista y se conserva el item
+     *   seleccionado si sigue existiendo.
+     * - Preferencias nuevas: solo se actualiza que variante esta marcada
+     *   (sin mover el scroll del jugador).
+     */
+    private void syncFromServerData() {
+        int conflictsVersion = ClientRecyclerData.getConflictsVersion();
+        if (conflictsVersion != seenConflictsVersion) {
+            seenConflictsVersion = conflictsVersion;
+
+            Item previous = selectedTarget;
+            conflictRows = buildConflictRows();
+
+            int maxOffset = Math.max(0, conflictRows.size() - VISIBLE_ROWS);
+            scrollOffset = Math.max(0, Math.min(maxOffset, scrollOffset));
+
+            boolean stillThere = previous != null
+                    && conflictRows.stream().anyMatch(row -> row.target().equals(previous));
+            if (!stillThere) {
+                selectedTarget = conflictRows.isEmpty() ? null : conflictRows.get(0).target();
+                loadCurrentPreferenceIndex();
+            }
+        }
+
+        int prefsVersion = ClientRecyclerData.getPrefsVersion();
+        if (prefsVersion != seenPrefsVersion) {
+            seenPrefsVersion = prefsVersion;
+            refreshSelectedVariantIndex();
+        }
     }
 
     @Override
@@ -423,9 +471,6 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         }
         currentSegments = segments;
 
-        var server = net.minecraft.client.Minecraft.getInstance().getSingleplayerServer();
-        RecyclerPreferences prefs = server != null ? RecyclerPreferences.get(server) : null;
-
         for (int idx = 0; idx < MAX_VARIANT_SLOTS; idx++) {
             ItemIconButton button = variantButtons[idx];
             if (button == null) continue;
@@ -449,18 +494,16 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
             }
 
             Item variantItem = segment.items().get(variantIndex);
-            boolean highlighted = isGroupPreferenceSelected(prefs, segment, variantItem);
+            boolean highlighted = isGroupPreferenceSelected(segment, variantItem);
             button.setContent(new ItemStack(variantItem), highlighted);
             button.visible = true;
         }
     }
 
-    private boolean isGroupPreferenceSelected(RecyclerPreferences prefs, Segment segment, Item candidate) {
-        if (prefs != null) {
-            Optional<Item> preferred = prefs.getGroupPreference(selectedTarget, segment.groupKey());
-            if (preferred.isPresent()) {
-                return preferred.get() == candidate;
-            }
+    private boolean isGroupPreferenceSelected(Segment segment, Item candidate) {
+        Optional<Item> preferred = ClientRecyclerData.getGroupPreference(selectedTarget, segment.groupKey());
+        if (preferred.isPresent()) {
+            return preferred.get() == candidate;
         }
         // ES: sin preferencia guardada, el "elegido" es el primer item de la
         // lista del grupo (el mismo item base que usa RecyclerLogic).
@@ -574,6 +617,10 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
         if (this.minecraft != null && this.minecraft.player != null) {
             ClientPacketDistributor.sendToServer(new RecyclerPreferencePayload(selectedTarget, chosen));
+            // ES: Actualizacion optimista: se refleja el click al instante en
+            // la copia del cliente. El servidor confirma (o corrige) con
+            // RecyclerPreferencesSyncPayload poco despues.
+            ClientRecyclerData.setPreferenceLocal(selectedTarget, chosen);
         }
         updateButtonStates();
     }
@@ -594,6 +641,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
         if (this.minecraft != null && this.minecraft.player != null) {
             ClientPacketDistributor.sendToServer(new RecyclerGroupPreferencePayload(selectedTarget, segment.groupKey(), chosen));
+            ClientRecyclerData.setGroupPreferenceLocal(selectedTarget, segment.groupKey(), chosen);
         }
         updateButtonStates();
     }
@@ -604,6 +652,11 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         }
     }
 
+    /**
+     * ES: Al seleccionar un item: resetea los scrolls y mueve el grid a la
+     * variante que esta marcada como preferencia (si la hay). Lee
+     * ClientRecyclerData, no el servidor.
+     */
     private void loadCurrentPreferenceIndex() {
         selectedVariantIndex = 0;
         variantScrollOffset = 0;
@@ -615,11 +668,7 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
 
         List<MultiRecipeScanner.RecipeVariant> variants = MultiRecipeScanner.getVariantsFor(selectedTarget);
 
-        var server = net.minecraft.client.Minecraft.getInstance().getSingleplayerServer();
-        if (server == null) return;
-
-        RecyclerPreferences prefs = RecyclerPreferences.get(server);
-        prefs.getPreference(selectedTarget).ifPresent(signature -> {
+        ClientRecyclerData.getPreference(selectedTarget).ifPresent(signature -> {
             for (int i = 0; i < variants.size(); i++) {
                 if (variants.get(i).ingredientItems().equals(signature)) {
                     selectedVariantIndex = i;
@@ -628,6 +677,30 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
                 }
             }
         });
+    }
+
+    /**
+     * ES: Igual que loadCurrentPreferenceIndex pero SIN tocar el scroll:
+     * se usa cuando llegan preferencias nuevas del servidor con el menu ya
+     * abierto, para que el jugador no pierda su posicion en el grid.
+     */
+    private void refreshSelectedVariantIndex() {
+        if (selectedTarget == null || MultiRecipeScanner.hasUnlinkedGroups(selectedTarget)) {
+            return;
+        }
+
+        List<MultiRecipeScanner.RecipeVariant> variants = MultiRecipeScanner.getVariantsFor(selectedTarget);
+        Optional<List<Item>> preferred = ClientRecyclerData.getPreference(selectedTarget);
+
+        selectedVariantIndex = 0;
+        if (preferred.isEmpty()) return;
+
+        for (int i = 0; i < variants.size(); i++) {
+            if (variants.get(i).ingredientItems().equals(preferred.get())) {
+                selectedVariantIndex = i;
+                return;
+            }
+        }
     }
 
     /**
@@ -651,13 +724,9 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         }
         if (group == null) return ItemStack.EMPTY;
 
-        var server = net.minecraft.client.Minecraft.getInstance().getSingleplayerServer();
-        if (server != null) {
-            RecyclerPreferences prefs = RecyclerPreferences.get(server);
-            Optional<Item> preferred = prefs.getGroupPreference(row.target(), row.groupKey());
-            if (preferred.isPresent()) {
-                return new ItemStack(preferred.get());
-            }
+        Optional<Item> preferred = ClientRecyclerData.getGroupPreference(row.target(), row.groupKey());
+        if (preferred.isPresent()) {
+            return new ItemStack(preferred.get());
         }
 
         Item display = MultiRecipeScanner.getGroupDisplayItem(group);
@@ -668,16 +737,12 @@ public class RecyclerScreen extends AbstractContainerScreen<RecyclerMenu> {
         List<MultiRecipeScanner.RecipeVariant> variants = MultiRecipeScanner.getVariantsFor(target);
         if (variants.isEmpty()) return ItemStack.EMPTY;
 
-        var server = net.minecraft.client.Minecraft.getInstance().getSingleplayerServer();
-        if (server != null) {
-            RecyclerPreferences prefs = RecyclerPreferences.get(server);
-            Optional<List<Item>> preferred = prefs.getPreference(target);
-            if (preferred.isPresent()) {
-                List<Item> wanted = preferred.get();
-                for (MultiRecipeScanner.RecipeVariant variant : variants) {
-                    if (variant.ingredientItems().equals(wanted)) {
-                        return new ItemStack(MultiRecipeScanner.getDisplayItem(target, variant));
-                    }
+        Optional<List<Item>> preferred = ClientRecyclerData.getPreference(target);
+        if (preferred.isPresent()) {
+            List<Item> wanted = preferred.get();
+            for (MultiRecipeScanner.RecipeVariant variant : variants) {
+                if (variant.ingredientItems().equals(wanted)) {
+                    return new ItemStack(MultiRecipeScanner.getDisplayItem(target, variant));
                 }
             }
         }
