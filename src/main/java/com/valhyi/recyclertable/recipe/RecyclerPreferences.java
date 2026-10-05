@@ -11,6 +11,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 import net.minecraft.util.datafix.DataFixTypes;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -36,6 +37,10 @@ import java.util.Optional;
  * RecyclerLogic.findWithGroupPreferences). Este mapa es puramente aditivo:
  * no reemplaza chosenVariants, que se sigue usando igual que siempre para
  * los conflictos normales (una sola firma completa, ej. mossy_cobblestone).
+ *
+ * ES: Multijugador: getChosenVariantsSnapshot / getGroupPreferencesSnapshot
+ * devuelven copias profundas para armar RecyclerPreferencesSyncPayload. El
+ * cliente nunca toca esta clase: lee ClientRecyclerData.
  */
 public class RecyclerPreferences extends SavedData {
 
@@ -140,5 +145,25 @@ public class RecyclerPreferences extends SavedData {
         if (perGroup != null && perGroup.remove(groupKey) != null) {
             this.setDirty();
         }
+    }
+
+    // ================= Snapshots para sincronizar con clientes =================
+
+    /** ES: Copia profunda de chosenVariants (segura para mandar por red). */
+    public Map<Item, List<Item>> getChosenVariantsSnapshot() {
+        Map<Item, List<Item>> copy = new HashMap<>();
+        for (Map.Entry<Item, List<Item>> entry : chosenVariants.entrySet()) {
+            copy.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+        return copy;
+    }
+
+    /** ES: Copia profunda de groupPreferences (segura para mandar por red). */
+    public Map<Item, Map<String, Item>> getGroupPreferencesSnapshot() {
+        Map<Item, Map<String, Item>> copy = new HashMap<>();
+        for (Map.Entry<Item, Map<String, Item>> entry : groupPreferences.entrySet()) {
+            copy.put(entry.getKey(), new HashMap<>(entry.getValue()));
+        }
+        return copy;
     }
 }
