@@ -54,11 +54,12 @@ import java.util.Map;
  * entra aquí — sigue resuelto como una sola fila por multiRecipeItems, tal
  * como ya funcionaba.
  *
- * Este mapa es puramente aditivo: no reemplaza ni modifica
- * multiRecipeItems, RecyclerPreferences, ni RecyclerLogic. Por ahora solo
- * expone los datos (hasUnlinkedGroups / getUnlinkedGroupsFor); conectarlo al
- * panel de tags (RecyclerScreen) y a la resolución de preferencias
- * (RecyclerPreferences / RecyclerLogic) es el siguiente paso pendiente.
+ * ES: MULTIJUGADOR: scan() solo corre en el SERVIDOR. Los clientes reciben
+ * el resultado por red (RecyclerConflictsSyncPayload) y lo cargan con
+ * applySynced(), que reemplaza los mapas estáticos y recalcula los índices
+ * de ícono. Así el panel de tags funciona también en servidor dedicado.
+ * En singleplayer (cliente y servidor en la misma JVM) applySynced reemplaza
+ * los mapas por una copia idéntica, lo cual es inofensivo.
  */
 public class MultiRecipeScanner {
 
@@ -85,7 +86,10 @@ public class MultiRecipeScanner {
      */
     public record VariantGroup(String key, List<Integer> positions, List<RecipeVariant> variants) {}
 
-    private static Map<Item, List<RecipeVariant>> multiRecipeItems = Collections.emptyMap();
+    // ES: volatile porque en singleplayer el hilo del servidor y el del
+    // cliente (applySynced) pueden tocar estas referencias a la vez. Los
+    // mapas nunca se mutan despues de publicarse, solo se reemplazan enteros.
+    private static volatile Map<Item, List<RecipeVariant>> multiRecipeItems = Collections.emptyMap();
 
     // ES: Por cada item objetivo, la posición del ingrediente que REALMENTE
     // cambia entre sus variantes (ver computeDisplayIndex). El panel de tags
@@ -93,11 +97,11 @@ public class MultiRecipeScanner {
     // se mostraba ingredientItems().get(0), que en recetas como la cama
     // (lana fija en la posición 0, tabla variable en otra posición) mostraba
     // 12 veces el mismo ícono de lana en vez de las distintas tablas.
-    private static Map<Item, Integer> displayIndexByTarget = Collections.emptyMap();
+    private static volatile Map<Item, Integer> displayIndexByTarget = Collections.emptyMap();
 
     // ES: Ver el bloque de comentarios de la clase. Solo tiene entradas para
     // items cuya receta tiene 2+ grupos SIN material en común entre sí.
-    private static Map<Item, List<VariantGroup>> unlinkedGroupsByTarget = Collections.emptyMap();
+    private static volatile Map<Item, List<VariantGroup>> unlinkedGroupsByTarget = Collections.emptyMap();
 
     private static volatile boolean scanned = false;
 
@@ -159,7 +163,7 @@ public class MultiRecipeScanner {
                 registerVariant(found, target, variantSamples);
             }
 
-            // ES: NUEVO — si esta receta tiene 2+ grupos de ingrediente
+            // ES: Si esta receta tiene 2+ grupos de ingrediente
             // intercambiable SIN material en común, registrarlos también
             // como grupos independientes (ver comentario de clase).
             List<TagIngredientScanner.IngredientGroup> detectedGroups = TagIngredientScanner.detectGroups(recipeIngredients);
@@ -210,6 +214,24 @@ public class MultiRecipeScanner {
                         + "\" -> " + group.variants().size() + " variante(s)");
             }
         }
+    }
+
+    /**
+     * ES: CLIENTE. Carga el resultado del escaneo del servidor (recibido por
+     * RecyclerConflictsSyncPayload). Reemplaza los mapas completos y
+     * recalcula los indices de icono, que no viajan por red porque se
+     * derivan de las variantes (ver computeDisplayIndex).
+     */
+    public static void applySynced(Map<Item, List<RecipeVariant>> items, Map<Item, List<VariantGroup>> groups) {
+        Map<Item, Integer> displayIndex = new HashMap<>();
+        for (Map.Entry<Item, List<RecipeVariant>> entry : items.entrySet()) {
+            displayIndex.put(entry.getKey(), computeDisplayIndex(entry.getValue()));
+        }
+
+        multiRecipeItems = items;
+        displayIndexByTarget = displayIndex;
+        unlinkedGroupsByTarget = groups;
+        scanned = true;
     }
 
     private static void registerVariant(Map<Item, List<RecipeVariant>> found, Item target, List<ItemStack> samples) {
@@ -306,6 +328,14 @@ public class MultiRecipeScanner {
 
     public static Map<Item, List<RecipeVariant>> getMultiRecipeItems() {
         return multiRecipeItems;
+    }
+
+    /**
+     * ES: Mapa completo de grupos independientes (item objetivo -> grupos).
+     * Usado para armar RecyclerConflictsSyncPayload.
+     */
+    public static Map<Item, List<VariantGroup>> getUnlinkedGroupsMap() {
+        return unlinkedGroupsByTarget;
     }
 
     public static List<RecipeVariant> getVariantsFor(Item item) {
