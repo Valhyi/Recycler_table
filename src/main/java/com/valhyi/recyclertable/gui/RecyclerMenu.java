@@ -23,6 +23,9 @@ public class RecyclerMenu extends AbstractContainerMenu {
     private final ContainerData data;
     private final BlockPos blockPos;
 
+    // ES: Cantidad de valores del ContainerData: 0 = auto, 1 = procesando, 2 = aparcado.
+    public static final int DATA_COUNT = 3;
+
     // ================= INDICES DE SLOTS (fuente unica de verdad) =================
     // ES: RecyclerBlockEntity y RecyclerScreen usan estas constantes. Para
     // cambiar el tamano de los grids solo hay que tocar GRID_COLS / GRID_ROWS.
@@ -45,10 +48,6 @@ public class RecyclerMenu extends AbstractContainerMenu {
     private static final int PLAYER_HOTBAR_END = PLAYER_HOTBAR_START + 9;
 
     // ================= LAYOUT (pixeles EXACTOS de recycler_gui.png) =================
-    // ES: Todas las coordenadas son absolutas, relativas a la esquina superior
-    // izquierda de la textura. Las de SLOTS corresponden a la esquina del AREA
-    // DEL ITEM (16x16), 1 px dentro del borde visible. Las de BOTONES son la
-    // esquina del propio boton (sprite de 18x18).
     private static final int SLOT_SIZE = 18;
 
     // Tamano total del GUI (la textura mide 176 x 220)
@@ -73,10 +72,6 @@ public class RecyclerMenu extends AbstractContainerMenu {
     public static final int BOOK_Y = 48;
 
     // Botones (18x18 px)
-    // Medidas del usuario (borde a borde):
-    //   grid input -> play = 5, play <-> auto = 8, auto -> grid output = 5
-    //   botella/libro -> play/auto = 11, play/auto -> config = 6
-    //   config -> grids (izq y der) = 18, config -> inventario = 19
     public static final int BUTTON_SIZE = 18;
     public static final int PLAY_BUTTON_X = 66;
     public static final int PLAY_BUTTON_Y = 76;
@@ -111,11 +106,11 @@ public class RecyclerMenu extends AbstractContainerMenu {
     }
 
     private static ContainerData resolveData(BlockEntity blockEntity) {
-        return blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getDataAccess() : new SimpleContainerData(2);
+        return blockEntity instanceof RecyclerBlockEntity recycler ? recycler.getDataAccess() : new SimpleContainerData(DATA_COUNT);
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, Container container) {
-        this(containerId, playerInventory, BlockPos.ZERO, container, new SimpleContainerData(2));
+        this(containerId, playerInventory, BlockPos.ZERO, container, new SimpleContainerData(DATA_COUNT));
     }
 
     public RecyclerMenu(int containerId, Inventory playerInventory, BlockPos pos, Container container, ContainerData data) {
@@ -134,8 +129,10 @@ public class RecyclerMenu extends AbstractContainerMenu {
             }
         }
 
-        // 2. Zona Central -> Proceso, botella, libro
-        this.addSlot(new RecyclerSlots.ProcessSlot(container, PROCESSING_SLOT, PROCESS_X, PROCESS_Y));
+        // 2. Zona Central -> Proceso (variable), botella, libro
+        // ES: this.data ya esta asignado arriba; el BooleanSupplier se evalua
+        // de forma perezosa, asi que es seguro referenciar isParked() aqui.
+        this.addSlot(new RecyclerSlots.ProcessSlot(container, PROCESSING_SLOT, PROCESS_X, PROCESS_Y, this::isParked));
         this.addSlot(new RecyclerSlots.RestrictedSlot(container, BOTTLE_SLOT, BOTTLE_X, BOTTLE_Y, new ItemStack(Items.GLASS_BOTTLE)));
         this.addSlot(new RecyclerSlots.RestrictedSlot(container, BOOK_SLOT, BOOK_X, BOOK_Y, new ItemStack(Items.BOOK)));
 
@@ -170,8 +167,20 @@ public class RecyclerMenu extends AbstractContainerMenu {
         return this.data.get(0) == 1;
     }
 
+    /**
+     * ES: true si el item del slot de proceso esta aparcado (el ciclo termino
+     * pero el output no tenia espacio). En ese estado el slot es recogible.
+     */
+    public boolean isParked() {
+        return this.data.get(2) == 1;
+    }
+
+    /**
+     * ES: "Procesando" = hay un item en el slot de proceso Y no esta aparcado.
+     * Un item aparcado deja el boton play libre (sirve para reiniciar la espera).
+     */
     public boolean isProcessing() {
-        return this.getSlot(PROCESSING_SLOT).hasItem();
+        return this.getSlot(PROCESSING_SLOT).hasItem() && !isParked();
     }
 
     @Override
@@ -192,6 +201,14 @@ public class RecyclerMenu extends AbstractContainerMenu {
                     return ItemStack.EMPTY;
                 }
             } else if (slotIndex >= INPUT_SLOTS_START && slotIndex < INPUT_SLOTS_END) {
+                if (!this.moveItemStackTo(slotStack, PLAYER_INV_START, PLAYER_HOTBAR_END, true)) {
+                    return ItemStack.EMPTY;
+                }
+            } else if (slotIndex == PROCESSING_SLOT) {
+                // ES: solo se puede sacar con shift-clic si esta aparcado.
+                if (!isParked()) {
+                    return ItemStack.EMPTY;
+                }
                 if (!this.moveItemStackTo(slotStack, PLAYER_INV_START, PLAYER_HOTBAR_END, true)) {
                     return ItemStack.EMPTY;
                 }
