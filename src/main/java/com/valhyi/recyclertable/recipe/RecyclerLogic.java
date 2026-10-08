@@ -30,10 +30,10 @@ import com.mojang.logging.LogUtils;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class RecyclerLogic {
 
@@ -50,33 +50,6 @@ public class RecyclerLogic {
     public static final TagKey<Item> BLACKLISTED_FROM_RECYCLING =
             TagKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath("recyclertable", "blacklisted_from_recycling"));
 
-    // ================= CACHÉ DE RECETAS =================
-    // ES: Buscar la receta de un item recorre TODAS las recetas del juego
-    // (assemble() una por una + expansión de tags), y eso se repetía por cada
-    // reciclaje y, peor, CADA TICK mientras un item esperaba espacio en el
-    // output. El resultado de findByPriority solo depende del Item objetivo,
-    // de las recetas cargadas y de las preferencias del jugador, así que se
-    // cachea por Item (incluyendo el "no hay receta", como Optional.empty()).
-    //
-    // Se invalida solo en 3 casos:
-    //  1) Cambia una preferencia -> RecyclerPreferences llama invalidateCache().
-    //  2) /reload o server nuevo -> el RecipeManager es otra instancia; se
-    //     detecta comparando la referencia (cachedFor) en getRecipeMatch.
-    //  3) Manualmente, con invalidateCache().
-    //
-    // Los RecipeMatch cacheados NO se deben mutar: los llamadores siempre
-    // hacen .copy() de los ItemStack antes de usarlos (ver processRecyclingRaw).
-    private static final Map<Item, Optional<RecipeMatch>> MATCH_CACHE = new ConcurrentHashMap<>();
-    private static volatile RecipeManager cachedFor = null;
-
-    /**
-     * ES: Vacía el caché de recetas. Llamar cuando cambie algo que afecte qué
-     * receta se elige (preferencias, recetas recargadas).
-     */
-    public static void invalidateCache() {
-        MATCH_CACHE.clear();
-    }
-
     /**
      * ES: Resultado de encontrar la receta que produce el item objetivo.
      * ingredients: 1 copia de cada ingrediente necesario para UNA aplicación de la receta.
@@ -88,6 +61,103 @@ public class RecyclerLogic {
      * ES: Resultado final de procesar un stack completo del slot de proceso.
      */
     public record RecyclingOutput(List<ItemStack> results, int bottlesConsumed, int booksConsumed) {}
+
+    // ================= CACHE DE RECETAS POR ITEM =================
+    // ES: Buscar la receta de un item recorre TODAS las recetas del juego
+    // (stonecutter, hornos, crafting, herreria). Ese resultado solo depende
+    // del item objetivo y de las recetas cargadas, asi que se calcula la
+    // primera vez que se recicla ese item y se guarda (incluso el "no hay
+    // receta", que es el caso mas comun y el mas caro).
+    //
+    // Lo que NO se cachea, porque cambia en medio de la partida y es barato:
+    // las preferencias del jugador (applyPreference / group preferences), la
+    // blacklist (tag) y los chequeos del stack (teñido, contenido, etc).
+    //
+    // Invalidacion: se compara por IDENTIDAD el RecipeMap actual con el
+    // que se uso para llenar el cache. Cualquier /reload o mundo nuevo crea
+    // un RecipeMap nuevo y el cache se vacia solo, sin depender de eventos.
+    // clearCache() ademas libera la memoria al cerrar el servidor.
+
+    /**
+     * ES: Lo que se guarda por item. Respeta el orden de prioridad:
+     * beforeCrafting = stonecutter u horno (el primero que coincida);
+     * craftingMatches / dyedFallback = resultado de crafting (sin aplicar
+     * preferencia todavia); smithing = solo se calcula si lo anterior no
+     * encontro nada. Una etapa posterior queda vacia si una anterior ya
+     * coincidio (nunca se consulta).
+     */
+    private record CachedLookup(RecipeMatch beforeCrafting,
+                                List<RecipeMatch> craftingMatches,
+                                RecipeMatch dyedFallback,
+                                RecipeMatch smithing) {}
+
+    /**
+     * ES: Base de una receta con grupos independientes (ver
+     * findWithGroupPreferences): receta + muestra base + grupos detectados,
+     * todo independiente de las preferencias.
+     */
+    private record GroupedBase(Recipe<CraftingInput> recipe,
+                               List<ItemStack> baseSamples,
+                               List<TagIngredientScanner.IngredientGroup> groups) {}
+
+    private static final Map<Item, CachedLookup> LOOKUP_CACHE = new HashMap<>();
+    private static final Map<Item, List<GroupedBase>> GROUPED_CACHE = new HashMap<>();
+    private static Object cacheOwner = null;
+
+    /**
+     * ES: Vacia los caches. Llamar al cerrar el servidor (ver CommonEvents).
+     */
+    public static synchronized void clearCache() {
+        LOOKUP_CACHE.clear();
+        GROUPED_CACHE.clear();
+        cacheOwner = null;
+    }
+
+    private static void validateCache(RecipeManager recipeManager) {
+        Object current = recipeManager.recipeMap();
+        if (cacheOwner != current) {
+            LOOKUP_CACHE.clear();
+            GROUPED_CACHE.clear();
+            cacheOwner = current;
+        }
+    }
+
+    private static synchronized CachedLookup getLookup(ItemStack target, RecipeManager recipeManager) {
+        validateCache(recipeManager);
+        CachedLookup cached = LOOKUP_CACHE.get(target.getItem());
+        if (cached == null) {
+            cached = computeLookup(target, recipeManager);
+            LOOKUP_CACHE.put(target.getItem(), cached);
+        }
+        return cached;
+    }
+
+    private static synchronized List<GroupedBase> getGroupedBases(ItemStack target, RecipeManager recipeManager) {
+        validateCache(recipeManager);
+        List<GroupedBase> cached = GROUPED_CACHE.get(target.getItem());
+        if (cached == null) {
+            cached = collectGroupedBases(target, recipeManager);
+            GROUPED_CACHE.put(target.getItem(), cached);
+        }
+        return cached;
+    }
+
+    private static CachedLookup computeLookup(ItemStack target, RecipeManager recipeManager) {
+        RecipeMatch pre = findInStonecutter(target, recipeManager);
+        if (pre == null) {
+            pre = findInCooking(target, recipeManager);
+        }
+        if (pre != null) {
+            return new CachedLookup(pre, List.of(), null, null);
+        }
+
+        CraftingScan scan = scanCrafting(target, recipeManager);
+        if (!scan.realMatches().isEmpty() || scan.dyedFallback() != null) {
+            return new CachedLookup(null, scan.realMatches(), scan.dyedFallback(), null);
+        }
+
+        return new CachedLookup(null, List.of(), null, findInSmithing(target, recipeManager));
+    }
 
     public static boolean canRecycle(ItemStack itemStack, Level level) {
         return !itemStack.isEmpty() && !level.isClientSide();
@@ -135,11 +205,7 @@ public class RecyclerLogic {
      * 1 unidad de la contraparte sin encerar. Se arma directo, sin buscar en
      * el RecipeManager, porque en esta versión algunos bloques de cobre
      * tienen UNA SEGUNDA receta de crafting que compite (bloques de cobre en
-     * crudo -> directamente la versión encerada - ver captura del usuario).
-     * findInCrafting no puede distinguir cuál es "la correcta": elige la
-     * primera que encuentra según el orden del RecipeManager, que no está
-     * garantizado, y a veces terminaba devolviendo bloques de cobre en vez
-     * de panal + item sin encerar. Esto se resuelve devolviendo esta receta
+     * crudo -> directamente la versión encerada). Se devuelve esta receta
      * directo, con máxima prioridad (ver findByPriority), sin ambigüedad.
      */
     private static RecipeMatch findWaxedMatch(ItemStack target) {
@@ -178,10 +244,6 @@ public class RecyclerLogic {
      * está teñido (items teñidos no se reconstruyen a materiales; la armadura de cuero
      * SIN teñir sí se recicla), o si es un contenedor con contenido (shulker/bundle),
      * para no perder lo que lleva dentro.
-     *
-     * ES: Las comprobaciones que dependen del STACK concreto (blacklist, teñido,
-     * contenido) se hacen siempre, baratas y sin caché. Solo la búsqueda de la
-     * receta (cara) pasa por MATCH_CACHE, que depende únicamente del Item.
      */
     public static RecipeMatch getRecipeMatch(ItemStack inputStack, Level level) {
         if (inputStack.isEmpty() || level.isClientSide() || level.getServer() == null) {
@@ -205,21 +267,7 @@ public class RecyclerLogic {
         }
 
         RecipeManager recipeManager = level.getServer().getRecipeManager();
-
-        // ES: Si el RecipeManager es otra instancia (/reload, o se abrió otro
-        // mundo/server), todo lo cacheado es de recetas viejas.
-        if (cachedFor != recipeManager) {
-            MATCH_CACHE.clear();
-            cachedFor = recipeManager;
-        }
-
-        Item key = inputStack.getItem();
-        Optional<RecipeMatch> cached = MATCH_CACHE.get(key);
-        if (cached == null) {
-            cached = Optional.ofNullable(findByPriority(inputStack, recipeManager, level));
-            MATCH_CACHE.put(key, cached);
-        }
-        return cached.orElse(null);
+        return findByPriority(inputStack, recipeManager, level);
     }
 
     /**
@@ -248,35 +296,35 @@ public class RecyclerLogic {
 
         // ES: Caso especial - items cuya (única) receta de crafting tiene 2+
         // grupos de tag SIN material en común (ej. fogata: logs + coals; ver
-        // MultiRecipeScanner.hasUnlinkedGroups). Para estos, el jugador puede
-        // haber configurado una preferencia INDEPENDIENTE por cada grupo desde
-        // el panel de tags (ver RecyclerPreferences.getGroupPreference), algo
-        // que el resto de findInCrafting no puede resolver porque solo conoce
-        // variantes que cambian UN grupo a la vez respecto a la base (nunca
-        // "cerezo Y carbón vegetal simultáneamente" si esa combinación exacta
-        // no fue pre-generada). Se resuelve aparte, combinando las elecciones
-        // guardadas directamente sobre la receta real, antes de intentar el
-        // resto de las prioridades normales.
+        // MultiRecipeScanner.hasUnlinkedGroups). El jugador puede haber
+        // configurado una preferencia INDEPENDIENTE por cada grupo desde el
+        // panel de tags (ver RecyclerPreferences.getGroupPreference). Se
+        // resuelve aparte, combinando las elecciones guardadas directamente
+        // sobre la receta real, antes de las prioridades normales.
         if (MultiRecipeScanner.hasUnlinkedGroups(target.getItem())) {
             RecipeMatch combined = findWithGroupPreferences(target, recipeManager, level);
             if (combined != null) return combined;
         }
 
-        RecipeMatch found;
+        // ES: Resultado cacheado de la busqueda (ver CachedLookup). Respeta el
+        // mismo orden de prioridad de siempre: stonecutter/horno -> crafting
+        // (con preferencia del jugador) -> crafting de reteñido -> herreria.
+        CachedLookup lookup = getLookup(target, recipeManager);
 
-        found = findInStonecutter(target, recipeManager);
-        if (found != null) return found;
+        if (lookup.beforeCrafting() != null) {
+            return lookup.beforeCrafting();
+        }
 
-        found = findInCooking(target, recipeManager);
-        if (found != null) return found;
+        if (!lookup.craftingMatches().isEmpty()) {
+            RecipeMatch preferred = applyPreference(target.getItem(), lookup.craftingMatches(), level);
+            return preferred != null ? preferred : lookup.craftingMatches().get(0);
+        }
 
-        found = findInCrafting(target, recipeManager, level);
-        if (found != null) return found;
+        if (lookup.dyedFallback() != null) {
+            return lookup.dyedFallback();
+        }
 
-        found = findInSmithing(target, recipeManager);
-        if (found != null) return found;
-
-        return null;
+        return lookup.smithing();
     }
 
     /**
@@ -301,23 +349,15 @@ public class RecyclerLogic {
     }
 
     /**
-     * ES: Resuelve el caso "fogata": una receta con 2+ grupos de tag sin
-     * material en común, combinando la preferencia guardada de CADA grupo
-     * (RecyclerPreferences.getGroupPreference) sobre la muestra base de la
-     * receta real. Un grupo sin preferencia guardada conserva su item base
-     * (el mismo comportamiento que si nunca se hubiera tocado el panel de
-     * tags). Se re-ensambla la receta con la combinación final para
-     * confirmar que sigue produciendo el item objetivo antes de devolverla.
-     *
-     * Busca sobre TODAS las recetas de crafting (no solo la "esperada") por
-     * si en el futuro más de una receta produce el mismo target con grupos
-     * propios; en la práctica hoy es siempre una sola.
+     * ES: Parte "cruda" (independiente de las preferencias) del caso
+     * "fogata": recorre las recetas de crafting y junta las que producen el
+     * item objetivo Y tienen 2+ grupos de tag sin material en comun. Se
+     * cachea (ver getGroupedBases); las preferencias se combinan despues, en
+     * cada consulta, en findWithGroupPreferences.
      */
     @SuppressWarnings("unchecked")
-    private static RecipeMatch findWithGroupPreferences(ItemStack target, RecipeManager recipeManager, Level level) {
-        if (level == null || level.getServer() == null) return null;
-
-        RecyclerPreferences prefs = RecyclerPreferences.get(level.getServer());
+    private static List<GroupedBase> collectGroupedBases(ItemStack target, RecipeManager recipeManager) {
+        List<GroupedBase> bases = new ArrayList<>();
 
         for (RecipeHolder<?> holder : recipeManager.recipeMap().byType(RecipeType.CRAFTING)) {
             Recipe<?> recipe = holder.value();
@@ -339,17 +379,40 @@ public class RecyclerLogic {
             List<TagIngredientScanner.IngredientGroup> groups = TagIngredientScanner.detectGroups(recipeIngredients);
             if (groups.size() < 2 || TagIngredientScanner.groupsShareMaterial(groups)) {
                 // ES: Esta receta en particular no es del caso "grupos sin
-                // material en común" - no aplica aquí, se sigue buscando (o
-                // se descarta si no hay más recetas de este target).
+                // material en común" - no aplica aquí.
                 continue;
             }
 
-            List<ItemStack> finalSamples = new ArrayList<>(baseSamples.size());
-            for (ItemStack sample : baseSamples) {
+            bases.add(new GroupedBase((Recipe<CraftingInput>) recipe, baseSamples, groups));
+        }
+
+        return bases;
+    }
+
+    /**
+     * ES: Resuelve el caso "fogata": una receta con 2+ grupos de tag sin
+     * material en común, combinando la preferencia guardada de CADA grupo
+     * (RecyclerPreferences.getGroupPreference) sobre la muestra base de la
+     * receta real. Un grupo sin preferencia guardada conserva su item base
+     * (el mismo comportamiento que si nunca se hubiera tocado el panel de
+     * tags). Se re-ensambla la receta con la combinación final para
+     * confirmar que sigue produciendo el item objetivo antes de devolverla.
+     *
+     * La busqueda de recetas (collectGroupedBases) esta cacheada; aqui solo
+     * se combinan las preferencias y se ensambla, que es barato.
+     */
+    private static RecipeMatch findWithGroupPreferences(ItemStack target, RecipeManager recipeManager, Level level) {
+        if (level == null || level.getServer() == null) return null;
+
+        RecyclerPreferences prefs = RecyclerPreferences.get(level.getServer());
+
+        for (GroupedBase base : getGroupedBases(target, recipeManager)) {
+            List<ItemStack> finalSamples = new ArrayList<>(base.baseSamples().size());
+            for (ItemStack sample : base.baseSamples()) {
                 finalSamples.add(sample.copy());
             }
 
-            for (TagIngredientScanner.IngredientGroup group : groups) {
+            for (TagIngredientScanner.IngredientGroup group : base.groups()) {
                 Optional<Item> preferred = prefs.getGroupPreference(target.getItem(), group.key());
                 if (preferred.isEmpty()) continue;
 
@@ -367,7 +430,7 @@ public class RecyclerLogic {
 
             ItemStack finalOutput;
             try {
-                finalOutput = ((Recipe<CraftingInput>) recipe).assemble(CraftingInput.of(finalSamples.size(), 1, finalSamples));
+                finalOutput = base.recipe().assemble(CraftingInput.of(finalSamples.size(), 1, finalSamples));
             } catch (Exception ex) {
                 continue;
             }
@@ -412,25 +475,29 @@ public class RecyclerLogic {
     // ================= CRAFTING (genérico: shaped, shapeless, transmute, dyed, etc.) =================
     // ES: En vez de comprobar tipos concretos (ShapedRecipe, ShapelessRecipe, TransmuteRecipe...),
     // se maneja de forma genérica porque el juego sigue agregando nuevas subclases de receta de
-    // crafteo (ej. "minecraft:crafting_dyed", usado para reteñir camas y arneses). Comprobar solo
-    // tipos conocidos dejaba esas recetas invisibles para el reciclador. Aquí se intenta ensamblar
-    // CUALQUIER receta registrada bajo RecipeType.CRAFTING usando su propio método assemble(),
-    // sin importar su clase interna.
+    // crafteo (ej. "minecraft:crafting_dyed", usado para reteñir camas y arneses). Aquí se intenta
+    // ensamblar CUALQUIER receta registrada bajo RecipeType.CRAFTING usando su propio método
+    // assemble(), sin importar su clase interna.
     //
-    // ES: Junta TODAS las coincidencias reales (no de reteñido) en vez de devolver la
-    // primera. Si el jugador configuró una preferencia en el panel de tags para este
-    // item (ver RecyclerPreferences), se usa esa; si no, se mantiene el comportamiento
-    // anterior (primera coincidencia encontrada). Además, si algún ingrediente es un tag
-    // con varios items posibles (ej. "planks"), se agrega una coincidencia extra por cada
-    // item del tag (ver TagIngredientScanner.expandGroupedVariants) para que la preferencia
-    // elegida en el panel tenga con qué coincidir durante el reciclado real.
+    // ES: Junta TODAS las coincidencias reales (no de reteñido) en vez de devolver la primera.
+    // La preferencia del jugador (panel de tags) se aplica DESPUES, en findByPriority vía
+    // applyPreference, para que el resultado de este escaneo se pueda cachear. Si algún
+    // ingrediente es un tag con varios items posibles (ej. "planks"), se agrega una coincidencia
+    // extra por cada item del tag (ver TagIngredientScanner.expandGroupedVariants) para que la
+    // preferencia elegida en el panel tenga con qué coincidir durante el reciclado real.
     //
     // ES: Items encerados (waxed_*) ya NO llegan hasta acá - se resuelven antes, en
-    // findByPriority, vía findWaxedMatch. Esto evita justamente la ambigüedad que
-    // tenían (2 recetas de crafting válidas para el mismo bloque: panal, y bloques de
-    // cobre en crudo) sin depender de qué reciba primero el RecipeManager.
+    // findByPriority, vía findWaxedMatch.
+
+    /**
+     * ES: Resultado del escaneo de crafting: coincidencias reales (en el orden
+     * del RecipeManager) y, aparte, la primera coincidencia de reteñido (solo
+     * se usa si no hay ninguna real).
+     */
+    private record CraftingScan(List<RecipeMatch> realMatches, RecipeMatch dyedFallback) {}
+
     @SuppressWarnings("unchecked")
-    private static RecipeMatch findInCrafting(ItemStack target, RecipeManager recipeManager, Level level) {
+    private static CraftingScan scanCrafting(ItemStack target, RecipeManager recipeManager) {
         RecipeMatch fallbackDyedMatch = null;
         List<RecipeMatch> realMatches = new ArrayList<>();
 
@@ -467,11 +534,8 @@ public class RecyclerLogic {
 
                 // ES: Si algún ingrediente de la receta es un TINTE (DyeItem), es una
                 // receta de reteñido (ej. tinte + cama blanca -> cama roja), no de
-                // materiales base reales. Esto reemplaza al chequeo anterior por clase de
-                // Item del ingrediente (que fallaba porque, en esta versión, el item Harness
-                // comparte la misma clase Java que el item Lana, dando falsos positivos).
-                // Comparar por DyeItem es semánticamente correcto y no depende de detalles
-                // internos de jerarquía de clases que pueden cambiar entre versiones.
+                // materiales base reales. Comparar por DyeItem es semánticamente correcto
+                // y no depende de detalles internos de jerarquía de clases.
                 boolean referencesSameFamily = samples.stream()
                         .anyMatch(s -> s.getItem() instanceof net.minecraft.world.item.DyeItem);
 
@@ -504,11 +568,7 @@ public class RecyclerLogic {
             }
         }
 
-        if (!realMatches.isEmpty()) {
-            RecipeMatch preferred = applyPreference(target.getItem(), realMatches, level);
-            return preferred != null ? preferred : realMatches.get(0);
-        }
-        return fallbackDyedMatch;
+        return new CraftingScan(realMatches, fallbackDyedMatch);
     }
 
     /**
