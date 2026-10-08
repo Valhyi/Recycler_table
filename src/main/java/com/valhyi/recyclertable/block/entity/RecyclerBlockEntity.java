@@ -43,7 +43,6 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     // ES: SimpleContainer llama a setChanged() cada vez que cambia un slot
     // (jugador en la GUI, tolvas, tuberias). Se sobreescribe para avisar al
     // BlockEntity; sin esto el chunk puede no guardarse y se pierden items.
-    // (En esta version SimpleContainer ya no tiene addListener.)
     private final SimpleContainer container = new SimpleContainer(CONTAINER_SIZE) {
         @Override
         public void setChanged() {
@@ -60,19 +59,44 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
     // ES: Con Auto encendido y el input vacio, Auto sigue activo este numero de
     // ticks (240 = 12 s) esperando mas items (ej. de una tolva). Si en ese lapso
-    // no llega nada, se apaga solo. El contador se reinicia cada vez que se
-    // encuentra un item para procesar. No se guarda en NBT (es transitorio).
+    // no llega nada, se apaga solo. No se guarda en NBT (es transitorio).
     private static final int AUTO_IDLE_TIMEOUT = 240;
     private int autoIdleTicks = 0;
+
+    // ================= ESTADO "APARCADO" =================
+    // ES: Un item queda aparcado cuando el ciclo termino pero el resultado no
+    // cabe en el output. Mientras esta aparcado el slot de proceso es
+    // recogible por el jugador (ver RecyclerSlots.ProcessSlot).
+    // - parked: hay un item aparcado (se guarda en NBT).
+    // - parkedWaiting: todavia se reintenta colocar el resultado. Se corta
+    //   tras PARKED_WAIT_TIMEOUT ticks; el item sigue aparcado y recogible,
+    //   y Play (o encender Auto) reinicia la espera.
+    private static final int PARKED_WAIT_TIMEOUT = 240;
+    private boolean parked = false;
+    private boolean parkedWaiting = false;
+    private int parkedTicks = 0;
+
+    // ================= RESULTADO CACHEADO (transitorio, sin NBT) =================
+    // ES: El resultado del reciclaje se calcula UNA vez por ciclo y se guarda
+    // aqui; mientras el item esta aparcado solo se repite la comprobacion
+    // barata canFitAllResults. Se recalcula si cambia el item del slot de
+    // proceso (ej. el jugador saco la mitad) o la cantidad de botellas/libros.
+    private List<ItemStack> pendingResults = null;
+    private int pendingBottlesConsumed = 0;
+    private int pendingBooksConsumed = 0;
+    private ItemStack pendingSource = ItemStack.EMPTY;
+    private int pendingBottleCount = 0;
+    private int pendingBookCount = 0;
 
     private final net.minecraft.world.inventory.ContainerData dataAccess = new net.minecraft.world.inventory.ContainerData() {
         @Override
         public int get(int index) {
             return switch (index) {
                 case 0 -> autoMode ? 1 : 0;
-                // ES: "Procesando" incluye: contando ticks, single-shot pendiente,
-                // o un item aparcado en el slot de proceso esperando espacio en el output.
-                case 1 -> (processingTicks > 0 || singleShotPending || !container.getItem(PROCESSING_SLOT).isEmpty()) ? 1 : 0;
+                // ES: "Procesando" = contando ticks o single-shot pendiente.
+                case 1 -> (processingTicks > 0 || singleShotPending) ? 1 : 0;
+                // ES: "Aparcado" = el slot de proceso es recogible.
+                case 2 -> parked ? 1 : 0;
                 default -> 0;
             };
         }
@@ -82,12 +106,12 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
             if (index == 0) {
                 autoMode = value != 0;
             }
-            // index 1 (processing) is read-only on the client; no-op
+            // index 1 y 2 son de solo lectura en el cliente; no-op
         }
 
         @Override
         public int getCount() {
-            return 2;
+            return RecyclerMenu.DATA_COUNT;
         }
     };
 
@@ -96,6 +120,11 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     public void triggerSingleShot() {
+        // ES: Con un item aparcado, Play reinicia la espera de espacio.
+        if (parked) {
+            restartParkedWait();
+            return;
+        }
         if (processingTicks == 0 && container.getItem(PROCESSING_SLOT).isEmpty()) {
             singleShotPending = true;
             this.setChanged();
@@ -105,11 +134,21 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     public void toggleAutoMode() {
         autoMode = !autoMode;
         autoIdleTicks = 0;
+        if (autoMode && parked) {
+            restartParkedWait();
+        }
         this.setChanged();
     }
 
     public boolean isAutoMode() {
         return autoMode;
+    }
+
+    private void restartParkedWait() {
+        if (!parked) return;
+        parkedWaiting = true;
+        parkedTicks = 0;
+        this.setChanged();
     }
 
     public RecyclerBlockEntity(BlockPos pos, BlockState state) {
@@ -352,6 +391,24 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         }
     }
 
+    /**
+     * ES: Limpia TODO el estado del ciclo actual (ticks, aparcado y
+     * resultado cacheado). Se usa al terminar un ciclo con exito, o cuando
+     * el slot de proceso quedo vacio (el jugador recogio el item aparcado).
+     */
+    private void resetProcessingState() {
+        processingTicks = 0;
+        parked = false;
+        parkedWaiting = false;
+        parkedTicks = 0;
+        pendingResults = null;
+        pendingBottlesConsumed = 0;
+        pendingBooksConsumed = 0;
+        pendingSource = ItemStack.EMPTY;
+        pendingBottleCount = 0;
+        pendingBookCount = 0;
+    }
+
     public void tick(Level level, BlockPos pos, BlockState state) {
         if (level == null || level.isClientSide()) {
             return;
@@ -362,16 +419,26 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
         ItemStack processStack = container.getItem(PROCESSING_SLOT);
 
-        // Si hay algo en el slot de proceso, gestionarlo (contando o aparcado)
-        if (!processStack.isEmpty()) {
-            if (processingTicks > 0) {
+        if (processStack.isEmpty()) {
+            // ES: Slot vacio pero quedaba estado de un ciclo (el jugador
+            // recogio el item aparcado, o fue extraido por otra via): se
+            // cancela todo para no dejar contadores desfasados.
+            if (processingTicks > 0 || parked || pendingResults != null) {
+                resetProcessingState();
+                this.setChanged();
+            }
+        } else {
+            if (parked) {
+                tickParked();
+            } else if (processingTicks > 0) {
                 accumulateMatchingItems();
                 processingTicks--;
                 if (processingTicks == 0) {
                     attemptResolveProcessing();
                 }
             } else {
-                // Aparcado: el ciclo ya termino pero no habia espacio en el output.
+                // ES: Item en el slot sin ciclo activo (ej. mundo guardado con
+                // una version anterior): se intenta resolver directamente.
                 attemptResolveProcessing();
             }
             return;
@@ -391,6 +458,10 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
 
                 container.setItem(PROCESSING_SLOT, singleItem);
                 processingTicks = PROCESSING_TIME;
+                parked = false;
+                parkedWaiting = false;
+                parkedTicks = 0;
+                pendingResults = null;
 
                 accumulateMatchingItems();
 
@@ -421,10 +492,77 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     /**
-     * ES: Intenta resolver el contenido del slot de proceso (llamado al llegar a 0
-     * ticks, o cada tick mientras esta aparcado esperando espacio). Si el resultado
-     * cabe en el output, lo coloca y limpia el slot. Si no cabe, detiene el modo
-     * automatico pero deja los items aparcados para reintentar en el proximo tick.
+     * ES: Calcula (si hace falta) el resultado del reciclaje del slot de
+     * proceso y lo deja en pendingResults. Si ya hay un resultado calculado
+     * para el MISMO item/cantidad y las MISMAS botellas/libros, no hace nada
+     * (esto es lo que evita recorrer todas las recetas en cada tick mientras
+     * el item esta aparcado).
+     */
+    private void ensurePending(ItemStack processStack) {
+        ItemStack emptyBottle = container.getItem(BOTTLE_SLOT);
+        ItemStack book = container.getItem(BOOK_SLOT);
+
+        if (pendingResults != null
+                && pendingBottleCount == emptyBottle.getCount()
+                && pendingBookCount == book.getCount()
+                && ItemStack.matches(pendingSource, processStack)) {
+            return;
+        }
+
+        RecyclerLogic.RecyclingOutput output = RecyclerLogic.processRecycling(processStack, emptyBottle, book, this.level);
+
+        List<ItemStack> results = new ArrayList<>(output.results());
+        if (results.isEmpty()) {
+            results.add(processStack.copy());
+        }
+
+        pendingResults = results;
+        pendingBottlesConsumed = output.bottlesConsumed();
+        pendingBooksConsumed = output.booksConsumed();
+        pendingSource = processStack.copy();
+        pendingBottleCount = emptyBottle.getCount();
+        pendingBookCount = book.getCount();
+    }
+
+    /**
+     * ES: Intenta colocar pendingResults en el output. Si caben, los coloca,
+     * consume botellas/libros, vacia el slot de proceso y limpia el estado.
+     * Devuelve false (sin tocar nada) si no hay espacio.
+     */
+    private boolean tryPlacePending() {
+        if (pendingResults == null || this.level == null) {
+            return false;
+        }
+        if (!canFitAllResults(pendingResults)) {
+            return false;
+        }
+
+        for (ItemStack result : pendingResults) {
+            placeInOutput(result);
+        }
+
+        ItemStack emptyBottle = container.getItem(BOTTLE_SLOT);
+        ItemStack book = container.getItem(BOOK_SLOT);
+        if (pendingBottlesConsumed > 0) {
+            emptyBottle.shrink(pendingBottlesConsumed);
+        }
+        if (pendingBooksConsumed > 0) {
+            book.shrink(pendingBooksConsumed);
+        }
+
+        container.setItem(PROCESSING_SLOT, ItemStack.EMPTY);
+        resetProcessingState();
+
+        this.setChanged();
+        this.level.sendBlockUpdated(this.getBlockPos(), this.getBlockState(), this.getBlockState(), 2);
+        return true;
+    }
+
+    /**
+     * ES: Llamado al llegar el ciclo a 0 ticks. Calcula el resultado una vez
+     * y, si cabe en el output, lo coloca. Si no cabe, el item queda APARCADO:
+     * el slot de proceso pasa a ser recogible, se detiene el modo automatico
+     * y se reintenta (barato) durante PARKED_WAIT_TIMEOUT ticks.
      */
     private void attemptResolveProcessing() {
         ItemStack processStack = container.getItem(PROCESSING_SLOT);
@@ -432,40 +570,43 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
             return;
         }
 
-        ItemStack emptyBottle = container.getItem(BOTTLE_SLOT);
-        ItemStack book = container.getItem(BOOK_SLOT);
+        ensurePending(processStack);
 
-        RecyclerLogic.RecyclingOutput output = RecyclerLogic.processRecycling(processStack, emptyBottle, book, this.level);
-
-        List<ItemStack> results = output.results();
-        if (results.isEmpty()) {
-            results = new ArrayList<>();
-            results.add(processStack.copy());
-        }
-
-        if (!canFitAllResults(results)) {
-            autoMode = false;
-            singleShotPending = false;
-            this.setChanged();
+        if (tryPlacePending()) {
             return;
         }
 
-        for (ItemStack result : results) {
-            placeInOutput(result);
-        }
-
-        if (output.bottlesConsumed() > 0) {
-            emptyBottle.shrink(output.bottlesConsumed());
-        }
-        if (output.booksConsumed() > 0) {
-            book.shrink(output.booksConsumed());
-        }
-
-        container.setItem(PROCESSING_SLOT, ItemStack.EMPTY);
-
+        parked = true;
+        parkedWaiting = true;
+        parkedTicks = 0;
+        processingTicks = 0;
+        autoMode = false;
+        singleShotPending = false;
         this.setChanged();
-        if (this.level != null) {
-            this.level.sendBlockUpdated(this.getBlockPos(), this.getBlockState(), this.getBlockState(), 2);
+    }
+
+    /**
+     * ES: Un tick con un item aparcado. Solo repite la comprobacion de espacio
+     * (el resultado ya esta calculado). Tras PARKED_WAIT_TIMEOUT ticks deja de
+     * reintentar; el item sigue aparcado y recogible hasta que el jugador lo
+     * saque o pulse Play / encienda Auto para reiniciar la espera.
+     */
+    private void tickParked() {
+        if (!parkedWaiting) {
+            return;
+        }
+
+        ItemStack processStack = container.getItem(PROCESSING_SLOT);
+        ensurePending(processStack);
+
+        if (tryPlacePending()) {
+            return;
+        }
+
+        parkedTicks++;
+        if (parkedTicks >= PARKED_WAIT_TIMEOUT) {
+            parkedWaiting = false;
+            this.setChanged();
         }
     }
 
@@ -492,6 +633,9 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         output.putInt("processing_ticks", this.processingTicks);
         output.putBoolean("auto_mode", this.autoMode);
         output.putBoolean("single_shot_pending", this.singleShotPending);
+        output.putBoolean("parked", this.parked);
+        output.putBoolean("parked_waiting", this.parkedWaiting);
+        output.putInt("parked_ticks", this.parkedTicks);
     }
 
     @Override
@@ -505,5 +649,12 @@ public class RecyclerBlockEntity extends BlockEntity implements MenuProvider {
         this.processingTicks = input.getIntOr("processing_ticks", 0);
         this.autoMode = input.getBooleanOr("auto_mode", false);
         this.singleShotPending = input.getBooleanOr("single_shot_pending", false);
+        this.parked = input.getBooleanOr("parked", false);
+        this.parkedWaiting = input.getBooleanOr("parked_waiting", false);
+        this.parkedTicks = input.getIntOr("parked_ticks", 0);
+
+        // ES: El resultado cacheado no se guarda; se recalcula una vez.
+        this.pendingResults = null;
+        this.pendingSource = ItemStack.EMPTY;
     }
 }
